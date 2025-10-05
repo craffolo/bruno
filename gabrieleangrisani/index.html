@@ -1,0 +1,57 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Home — Videomaker</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" async></script>
+  <script src="https://unpkg.com/@barba/core@2.9.7/dist/barba.umd.js" ></script>
+  <script src="js/main.js" defer></script>
+</head>
+<body>
+    <header class="site-header">
+    <div class="brand">
+        <a href="index.html"><img src="media/logo.png" alt="Logo" class="logo"></a>
+    </div>
+    <nav class="main-nav" aria-label="Main navigation">
+        <button id="navToggle" aria-expanded="false" aria-label="Apri menu">MENU</button>
+        <ul class="nav-list" id="navList">
+        <li><a href="gallery.html" data-nav>Portfolio</a></li>
+        <li><a href="about.html" data-nav>About</a></li>
+        </ul>
+    </nav>
+    </header>
+
+
+  <div id="barba-wrapper">
+    <div class="barba-container" data-barba="container" data-barba-namespace="home">
+      <main>
+        <section class="carousel" id="carouselSection">
+          <video class="carousel-video" muted loop playsinline data-src="media/video1.mp4"></video>
+
+          <div class="carousel-overlay">
+            <div class="carousel-bottom" role="button" aria-label="Vai al video">
+              <button id="prevBtn" class="control-btn" aria-label="Video precedente">⟵</button>
+              <div class="carousel-text" tabindex="0">
+                <a href="#" id="carouselLink">
+                  <h1></h1>
+                  <p></p>
+                </a>
+              </div>
+              <button id="nextBtn" class="control-btn" aria-label="Video successivo">⟶</button>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- <section class="preview-row">
+          <h2 style="padding: 0 20px;">Alcuni lavori</h2>
+          <div class="preview-grid" id="previewGrid"></div>
+        </section> -->
+      </main>
+    </div>
+  </div>
+</body>
+</html>

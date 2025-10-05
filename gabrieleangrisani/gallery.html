@@ -1,0 +1,36 @@
+<!-- gallery.html -->
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Galleria — Videomaker</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" async></script>
+  <script src="https://unpkg.com/@barba/core@2.9.7/dist/barba.umd.js" ></script>
+  <script src="js/main.js" defer></script>
+</head>
+<body>
+    <header class="site-header">
+    <div class="brand">
+        <a href="index.html"><img src="media/logo.png" alt="Logo" class="logo"></a>
+    </div>
+    <nav class="main-nav" aria-label="Main navigation">
+        <button id="navToggle" aria-expanded="false" aria-label="Apri menu">MENU</button>
+        <ul class="nav-list" id="navList">
+        <li><a href="gallery.html" data-nav>Portfolio</a></li>
+        <li><a href="about.html" data-nav>About</a></li>
+        </ul>
+    </nav>
+    </header>
+
+  <div id="barba-wrapper">
+    <div class="barba-container" data-barba="container" data-barba-namespace="gallery">
+      <main>
+        <h1 style="padding: 24px 20px;">Galleria</h1>
+        <div class="gallery-grid" id="galleryGrid"></div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

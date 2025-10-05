@@ -1,0 +1,79 @@
+<!-- about.html -->
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Chi sono — Videomaker</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" async></script>
+  <script src="https://unpkg.com/@barba/core@2.9.7/dist/barba.umd.js" ></script>
+  <script src="js/main.js" defer></script>
+</head>
+<body>
+    <header class="site-header">
+    <div class="brand">
+        <a href="index.html"><img src="media/logo.png" alt="Logo" class="logo"></a>
+    </div>
+    <nav class="main-nav" aria-label="Main navigation">
+        <button id="navToggle" aria-expanded="false" aria-label="Apri menu">MENU</button>
+        <ul class="nav-list" id="navList">
+        <li><a href="gallery.html" data-nav>Portfolio</a></li>
+        <li><a href="about.html" data-nav>About</a></li>
+        </ul>
+    </nav>
+    </header>
+
+  <div id="barba-wrapper">
+    <div class="barba-container" data-barba="container" data-barba-namespace="about">
+      <main>
+        <section class="bio">
+          <div class="bio-card">
+            <img src="media/profile.png" alt="Profilo" width="100" height="100">
+            <h2>Gabriele Angrisani</h2>
+            <p>Filmmaker</p>
+            <button id="factsBtn">Mostra curiosità</button>
+            <ul class="facts hidden">
+              <li>🎬 10 anni di esperienza</li>
+              <li>🌍 Ho lavorato in 6 paesi</li>
+              <li>🏆 Premio miglior corto 2023</li>
+            </ul>
+          </div>
+        </section>
+
+        <section>
+          <div class="bio-text">
+            <p>Credo nelle storie che lasciano il segno, nei volti veri, nelle immagini sporche ma autentiche. Sono un autore, regista e direttore della fotografia con oltre sette anni di esperienza nel settore dell’audiovisivo. Lavoro come filmmaker freelance, aiutando aziende, professionisti e artisti emergenti a costruire la propria identità visiva e comunicare i propri valori attraverso progetti originali e su misura. Nel corso degli anni ho girato videoclip, spot, cortometraggi e documentari in giro per il mondo e in diversi settori, dall’industria musicale a quella del fitness, per arrivare in ambito food e corporate.</p>
+          </div>
+        </section>
+
+        <section>
+          <div class="bio-contact">
+            <p><a href="mailto:gabriele@example.com">gabriele@example.com</a></p>
+            <p>
+              <a href="https://www.instagram.com/gabrieleangrisani" target="_blank" rel="noopener">Instagram</a> |
+              <a href="https://www.linkedin.com/in/gabrieleangrisani" target="_blank" rel="noopener">LinkedIn</a> |
+              <a href="" target="_blank" rel="noopener">Youtube</a>
+            </p>
+        </section>
+
+        <!-- <section>
+          <div class="bio-education">
+            <h2>Formazione</h2>
+            <p>Laurea in Cinema e Media, Università di Roma, 2013</p>
+            <p>Corso di Regia Cinematografica, Scuola di Cinema di Milano, 2015</p>
+            <p>Workshop di Montaggio Avanzato, New York Film Academy, 2017</p>
+          </div>
+        </section> -->
+
+        <section class="timeline">
+          <div class="time-item"><strong>2023</strong> — CHIACCHIERE DA ASCENSORE</div>
+          <div class="time-item"><strong>2024</strong> — WALDEINSAMKEIT</div>
+          <div class="time-item"><strong>2025</strong> — IL COMPITO</div>
+          <div class="time-item"><strong>2025</strong> — LA QUINTA STAGIONE</div>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
