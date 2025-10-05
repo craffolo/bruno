@@ -1,12 +1,12 @@
 (() => {
   /* ---------------- CONFIG ---------------- */
-  const AUTOPLAY_INTERVAL_MS = 15000;
-  const SLIDE_CHANGE_OVERLAY_MS = 1600;
-  const FEATURED_IDS = ['chiacchiere_da_ascensore', 'antonia_klugman_la_quinta_stagione'];
+  const AUTOPLAY_INTERVAL_MS = 4000;
+  const SLIDE_CHANGE_OVERLAY_MS = 1000;
+  const FEATURED_IDS = ['cm_festafinecampagna25', 'alici_di_menaica_teaser', 'partenope_fashion_film', 'cast_ride_or_die', 'evan_primo_marzo', 'niven_alpaca_freestyle', 'sevdaliza_human', 'sinestesie', 'waldeinsamkeit', 'studio_notarile_dausilio'];
   const VIDEOS = [
     // Corporate
     { id: 'di-agostino-costruzioni', src: 'https://jellybruno.home04.cyou/Items/afedd456c88d3f5dd2d53b6de535e9eb/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Di Agostino Costruzioni', desc: 'Corporate video - architecture & construction', descrizione: 'Video aziendale che mette in risalto l\'architettura e la costruzione.', category: 'Corporate' },
-    // { id: 'tecnocarpoint_trailer', src: '', title: 'Tecnocarpoint Trailer', desc: 'Corporate video - cars & showroom', descrizione: 'Trailer aziendale che presenta auto e showroom.', category: 'Corporate' },
+    { id: 'tecnocarpoint_trailer', src: '', title: 'Tecnocarpoint Trailer', desc: 'Corporate video - cars & showroom', descrizione: 'Trailer aziendale che presenta auto e showroom.', category: 'Corporate' },
     { id: 'villa_utopia', src: 'https://jellybruno.home04.cyou/Items/9dcd31f4187d033811d211958d7fc56a/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Villa Utopia', desc: 'Corporate video - real estate & luxury', descrizione: 'Video aziendale che mette in risalto il settore immobiliare di lusso.', category: 'Corporate' },
     
     // Documentaries
@@ -37,7 +37,6 @@
     { id: 'valeria_piccini_la_quinta_stagione', src: 'https://jellybruno.home04.cyou/Items/90ee38af27ed5dd0687e83d8cfd1e90b/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Valeria Piccini - La Quinta Stagione', desc: 'Food video - culinary art & seasonal ingredients', descrizione: 'Video culinario che celebra l\'arte culinaria e gli ingredienti stagionali.', category: 'Food' },
 
     // Music
-    { id: 'cast-invincible-rmx', src: 'https://jellybruno.home04.cyou/Items/54dbe955f8956c53f21db6a19a53c223/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'CAST - INVINCIBLE RMX', desc: 'Drone footage - landscape', descrizione: 'Riprese con drone di paesaggi mozzafiato.', category: 'Music' },
     { id: 'cast_ride_or_die', src: 'https://jellybruno.home04.cyou/Items/e3c02ec29604a8e23bb2b22cf4d13b7c/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'CAST - RIDE OR DIE', desc: 'Music video - urban & dynamic', descrizione: 'Video musicale con temi urbani e dinamici.', category: 'Music' },
     { id: 'eb_me_in_te', src: 'https://jellybruno.home04.cyou/Items/202700e20ff2c7f7f986f019d9a3dc1c/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'EB - ME IN TE', desc: 'Music video - romantic & emotional', descrizione: 'Video musicale con temi romantici ed emotivi.', category: 'Music' },
     { id: 'evan_primo_marzo', src: 'https://jellybruno.home04.cyou/Items/490247b718a393c61736a2c5cf3e95f7/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'EVAN - PRIMO MARZO', desc: 'Music video - introspective & moody', descrizione: 'Video musicale con temi introspettivi e cupi.', category: 'Music' },
@@ -50,7 +49,6 @@
     {id: 'waldeinsamkeit', src: 'https://jellybruno.home04.cyou/Items/0e10af99dee24604fe30d6425b2c3e2f/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Waldeinsamkeit', desc: 'Short film - nature & solitude', descrizione: 'Corto che esplora il tema della solitudine nella natura.', category: 'Shortfilm' },
 
     // Spot
-    { id: 'di-mauro', src: 'https://jellybruno.home04.cyou/Items/b37c1a541006c82ca4ec9f171ba34eed/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Spot Di Mauro', desc: 'Documentary excerpt - sea & light', descrizione: 'Estratto documentaristico con riprese di mare e luce naturale.', category: 'Spot' },
     { id: 'studio_notarile_dausilio', src: 'https://jellybruno.home04.cyou/Items/0a8f310e7ea2eac7b335e28bf853bcf2/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Studio Notarile D\'Ausilio', desc: 'Spot - professional services', descrizione: 'Spot pubblicitario per servizi professionali notarili.', category: 'Spot' },
     
   
@@ -211,10 +209,32 @@
 
     applyMute() {
       try {
-        // apply only to this instance's video element
-        this.videoEl.muted = !!this.muted;
-        this.videoEl.volume = this.muted ? 0 : 1;
-      } catch (e) {}
+        const muted = readMute();
+        this.muted = muted;
+        const v = this.videoEl;
+        if (!v) return;
+
+        // Forza la proprietà 'muted' e aggiorna il volume
+        v.muted = !!muted;
+        v.volume = muted ? 0 : 1;
+
+        // 🧠 Fix specifico per desktop:
+        // Forza un "nudge" all'audio per applicare il cambio in riproduzione
+        if (!v.paused) {
+          v.pause();
+          const curTime = v.currentTime;
+          // riavvia dopo leggerissimo delay per ricaricare l’audio context
+          setTimeout(() => {
+            try {
+              v.currentTime = curTime;
+              v.play().catch(() => {});
+            } catch (e) {}
+          }, 80);
+        }
+
+      } catch (e) {
+        console.warn('[mute] applyMute error', e);
+      }
     }
 
     toggleMute() {
