@@ -7,37 +7,45 @@
   <title>Chi sono — Videomaker</title>
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" async></script>
-  <script src="https://unpkg.com/@barba/core@2.9.7/dist/barba.umd.js" ></script>
+  <script src="https://unpkg.com/@barba/core@2.9.7/dist/barba.umd.js"></script>
   <script src="js/main.js" defer></script>
 </head>
 <body>
-    <header class="site-header">
+  <header class="site-header">
     <div class="brand">
-        <a href="index.html"><img src="media/logo.png" alt="Logo" class="logo"></a>
+      <a href="index.html"><img src="media/static/logo.png" alt="Logo" class="logo"></a>
     </div>
+
     <nav class="main-nav" aria-label="Main navigation">
-        <button id="navToggle" aria-expanded="false" aria-label="Apri menu">MENU</button>
-        <ul class="nav-list" id="navList">
-        <li><a href="gallery.html" data-nav>Portfolio</a></li>
-        <li><a href="about.html" data-nav>About</a></li>
-        </ul>
+      <button id="navToggle" class="hamburger" aria-expanded="false" aria-label="Apri menu">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+      </button>
+
+      <ul class="nav-list" id="navList" role="menubar">
+        <li role="none"><a role="menuitem" href="gallery.html" data-nav>Portfolio</a></li>
+        <li role="none"><a role="menuitem" href="about.html" data-nav>About</a></li>
+      </ul>
     </nav>
-    </header>
+  </header>
 
   <div id="barba-wrapper">
     <div class="barba-container" data-barba="container" data-barba-namespace="about">
       <main>
         <section class="bio">
-          <div class="bio-card">
-            <img src="media/profile.png" alt="Profilo" width="100" height="100">
+          <div class="bio-card" id="bioCard">
+            <div class="profile-wrap">
+              <img src="media/static/profile.png" alt="Profilo" class="profile-img" id="profileImg">
+            </div>
             <h2>Gabriele Angrisani</h2>
-            <p>Filmmaker</p>
-            <button id="factsBtn">Mostra curiosità</button>
-            <ul class="facts hidden">
-              <li>🎬 10 anni di esperienza</li>
-              <li>🌍 Ho lavorato in 6 paesi</li>
-              <li>🏆 Premio miglior corto 2023</li>
-            </ul>
+            <p class="role">Filmmaker</p>
+
+            <div class="facts-panel">
+              <ul class="facts">
+                <li>🎬 10 anni di esperienza</li>
+                <li>🌍 Ho lavorato in 6 paesi</li>
+                <li>🏆 Premio miglior corto 2023</li>
+              </ul>
+            </div>
           </div>
         </section>
 
@@ -47,33 +55,31 @@
           </div>
         </section>
 
-        <section>
-          <div class="bio-contact">
+        <section class="bio-contact">
+          <div class="contact-wrap">
             <p><a href="mailto:gabriele@example.com">gabriele@example.com</a></p>
-            <p>
-              <a href="https://www.instagram.com/gabrieleangrisani" target="_blank" rel="noopener">Instagram</a> |
-              <a href="https://www.linkedin.com/in/gabrieleangrisani" target="_blank" rel="noopener">LinkedIn</a> |
-              <a href="" target="_blank" rel="noopener">Youtube</a>
+            <p class="socials">
+              <a href="https://www.instagram.com/gabrieleangrisani" target="_blank" rel="noopener">Instagram</a>
+              <a href="https://www.linkedin.com/in/gabrieleangrisani" target="_blank" rel="noopener">LinkedIn</a>
+              <a href="#" target="_blank" rel="noopener">YouTube</a>
             </p>
+          </div>
         </section>
 
-        <!-- <section>
-          <div class="bio-education">
-            <h2>Formazione</h2>
-            <p>Laurea in Cinema e Media, Università di Roma, 2013</p>
-            <p>Corso di Regia Cinematografica, Scuola di Cinema di Milano, 2015</p>
-            <p>Workshop di Montaggio Avanzato, New York Film Academy, 2017</p>
+        <section class="timeline" id="timeline">
+          <div class="time-track">
+            <div class="time-item"><strong>2023</strong><span>CHIACCHIERE DA ASCENSORE</span></div>
+            <div class="time-item"><strong>2024</strong><span>WALDEINSAMKEIT</span></div>
+            <div class="time-item"><strong>2025</strong><span>IL COMPITO</span></div>
+            <div class="time-item"><strong>2025</strong><span>LA QUINTA STAGIONE</span></div>
           </div>
-        </section> -->
-
-        <section class="timeline">
-          <div class="time-item"><strong>2023</strong> — CHIACCHIERE DA ASCENSORE</div>
-          <div class="time-item"><strong>2024</strong> — WALDEINSAMKEIT</div>
-          <div class="time-item"><strong>2025</strong> — IL COMPITO</div>
-          <div class="time-item"><strong>2025</strong> — LA QUINTA STAGIONE</div>
         </section>
       </main>
     </div>
   </div>
 </body>
 </html>
+
+
+
+
