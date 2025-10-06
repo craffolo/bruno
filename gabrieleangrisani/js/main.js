@@ -1,8 +1,14 @@
 // js/main.js (PATCH - robusto contro "VIDEOS is not defined")
 (() => {
-  /* ---------------- CONFIG ---------------- */
-  const AUTOPLAY_INTERVAL_MS = 10000;
-  const SLIDE_CHANGE_OVERLAY_MS = 1000;
+  /* ---------------- CONFIG / TIMINGS (modifica qui) ---------------- */
+  // Intervalli separati per autoplay
+  const HOME_AUTOPLAY_INTERVAL_MS = 4000;     // autoplay carosello home
+  const GALLERY_AUTOPLAY_INTERVAL_MS = 10000;  // autoplay gallery player
+
+  // overlay / animazioni
+  const SLIDE_CHANGE_OVERLAY_MS = 1000; // overlay visibile al cambio slide
+  const PLAY_TRANSIENT_MS = 620;        // durata effetto play transient (ms)
+
 
   // HOME_CAROUSEL: sorgenti dedicate al carosello della home (ottimizzate)
   // Modifica questi src con i preview / teaser reali (piccoli/leggeri).
@@ -472,8 +478,9 @@
 
     resetAutoplay() {
       if (this.autoplayTimer) clearInterval(this.autoplayTimer);
-      this.autoplayTimer = setInterval(() => this.go(this.idx + 1), AUTOPLAY_INTERVAL_MS);
+      this.autoplayTimer = setInterval(() => this.go(this.idx + 1), HOME_AUTOPLAY_INTERVAL_MS);
     }
+
 
     _bindPointer() {
       let startX = 0, deltaX = 0, isSwiping = false;
@@ -514,7 +521,12 @@
       this.muteBtn = opts.muteBtn || null;
       this.progressBar = this.container.querySelector('.progress-bar');
       this.progressBuffer = this.container.querySelector('.progress-buffer');
+      this.progressWrap = this.container.querySelector('.progress-wrap');
       this.playOverlay = this.container.querySelector('.play-overlay');
+      this.topOverlay = this.container.querySelector('.top-overlay');
+      this.topMuteBtn = this.container.querySelector('.top-overlay .mute-btn');
+      this.topFsBtn = this.container.querySelector('.top-overlay .fs-btn');
+      this._wireTopControls();
       this.slides = opts.slides || [];
       this.currentIndex = 0;
       this.front = 'A';
@@ -522,12 +534,32 @@
       this.isManual = false;
       this._boundOnInteraction = this._onUserInteraction.bind(this);
       this._rafId = null;
+      this._pauseTimeoutId = null;
+      this._seeking = false;
 
       this._setupLayers();
       this._wireControls();
       if (this.muteBtn) this.updateMuteButton();
 
       this._bindClickToToggle();
+      this._bindProgressInteractions();
+
+      // Ensure no pause icon visible on init (only show after user interaction)
+      try {
+        if (this.playOverlay) {
+          this.playOverlay.classList.remove('paused', 'buffering', 'animate-in');
+          const pa = this.playOverlay.querySelector('.icon-pause');
+          const ip = this.playOverlay.querySelector('.icon-play');
+          const sp = this.playOverlay.querySelector('.buffer-spinner');
+          if (pa) { pa.style.display = 'none'; pa.style.opacity = '0'; }
+          if (ip) { ip.style.opacity = '0'; ip.style.display = 'none'; }
+          if (sp) { sp.style.display = 'none'; sp.style.opacity = '0'; }
+          // hide overlay visually until an event requests it
+          this.playOverlay.style.opacity = '0';
+          this.playOverlay.style.display = 'none';
+        }
+      } catch (e) { /* silent fail for older browsers */ }
+
 
       if (this.slides.length) this.playIndex(0, { autoplayStart: true });
       this.resetAutoplay();
@@ -536,24 +568,81 @@
 
     _setupLayers() {
       if (this.layerA && this.layerB) {
-        this.layerA.style.position = 'absolute';
-        this.layerB.style.position = 'absolute';
-        this.layerA.style.inset = '0';
-        this.layerB.style.inset = '0';
-        this.layerA.style.width = '100%';
-        this.layerB.style.width = '100%';
-        this.layerA.style.height = '100%';
-        this.layerB.style.height = '100%';
-        this.layerA.style.objectFit = 'cover';
-        this.layerB.style.objectFit = 'cover';
-        this.layerA.style.opacity = 1;
-        this.layerB.style.opacity = 0;
-        this.layerA.style.zIndex = 2;
-        this.layerB.style.zIndex = 1;
         const gp = this.container.querySelector('.gallery-player');
         if (gp) { gp.style.position = 'relative'; gp.style.overflow = 'hidden'; }
+        // wire basic buffering listeners for both layers (we will route events to front)
+        [this.layerA, this.layerB].forEach(layer => {
+          if (!layer) return;
+          layer.addEventListener('waiting', () => this._onBuffering(layer));
+          layer.addEventListener('stalled', () => this._onBuffering(layer));
+          layer.addEventListener('playing', () => this._onPlaying(layer));
+          layer.addEventListener('canplay', () => this._onPlaying(layer));
+          layer.addEventListener('error', () => this._onPlaying(layer));
+        });
       }
     }
+
+    _wireTopControls() {
+      // ensure buttons exist and wire events
+      if (this.topMuteBtn) {
+        // reflect initial state
+        this.updateMuteButton(); // will set .muted on btn if needed
+        this.topMuteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // If instanceMap available, toggle local instance mute
+          try {
+            // use instance's toggleMute if present
+            this.toggleMute();
+          } catch (err) {
+            // fallback: toggle HTML5 video directly
+            const v = this._getFrontLayer();
+            if (v) { v.muted = !v.muted; this.topMuteBtn.classList.toggle('muted', !!v.muted); }
+          }
+          // update visual quickly
+          this.topMuteBtn.classList.toggle('muted', !!readMute());
+        });
+      }
+
+      if (this.topFsBtn) {
+        this.topFsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleFullscreen();
+        });
+      }
+
+      // Listen for fullscreen changes so we can update icon even when user uses ESC
+      document.addEventListener('fullscreenchange', () => this.updateFullscreenButton());
+      document.addEventListener('webkitfullscreenchange', () => this.updateFullscreenButton());
+      document.addEventListener('mozfullscreenchange', () => this.updateFullscreenButton());
+      document.addEventListener('MSFullscreenChange', () => this.updateFullscreenButton());
+    }
+
+    toggleFullscreen() {
+      const el = this.container; // fullscreen the whole container (change if prefer .gallery-player)
+      if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+        // request fullscreen
+        if (el.requestFullscreen) el.requestFullscreen().catch(()=>{});
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+      }
+      // update icon after small delay (browser takes a little to enter FS)
+      setTimeout(()=> this.updateFullscreenButton(), 250);
+    }
+
+    updateFullscreenButton() {
+      const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+      if (!this.topFsBtn) return;
+      this.topFsBtn.classList.toggle('is-full', isFull);
+      this.topFsBtn.setAttribute('aria-pressed', isFull ? 'true' : 'false');
+      this.topFsBtn.setAttribute('aria-label', isFull ? 'Esci schermo intero' : 'Attiva schermo intero');
+    }
+
 
     _wireControls() {
       if (this.prevBtn) this.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); this._onUserInteraction(); this.prev(); });
@@ -561,6 +650,32 @@
       if (this.muteBtn) {
         this.muteBtn.addEventListener('click', (e) => { e.stopPropagation(); this.toggleMute(); });
         this.updateMuteButton();
+      }
+    }
+
+    _onBuffering(layer) {
+      // show spinner only if affected layer is the front or is loading into front
+      const front = this._getFrontLayer();
+      if (!front) return;
+      // show buffering overlay
+      if (this.playOverlay) {
+        this.playOverlay.classList.add('buffering');
+        // hide play/pause icons while buffering
+        this.playOverlay.classList.remove('paused');
+      }
+    }
+
+    _onPlaying(layer) {
+      // hide spinner
+      if (this.playOverlay) {
+        this.playOverlay.classList.remove('buffering');
+        // ensure play/pause state remains correct: if paused state set, show pause icon, else hide icons
+        if (!this._getFrontLayer() || this._getFrontLayer().paused) {
+          // show paused if paused
+          this.playOverlay.classList.add('paused');
+        } else {
+          this.playOverlay.classList.remove('paused');
+        }
       }
     }
 
@@ -600,7 +715,7 @@
     resetAutoplay() {
       this.clearAutoplay();
       if (this.isManual) return;
-      this.autoplayTimer = setInterval(() => { this.next(); }, AUTOPLAY_INTERVAL_MS);
+      this.autoplayTimer = setInterval(() => { this.next(); }, GALLERY_AUTOPLAY_INTERVAL_MS);
     }
 
     setSlides(slides) {
@@ -645,7 +760,7 @@
         backLayer.removeEventListener('loadedmetadata', onLoaded);
         backLayer.currentTime = 0;
         backLayer.play().catch(()=>{});
-        // crossfade
+        // crossfade + zoom
         if (window.gsap) {
           backLayer.style.zIndex = 3;
           frontLayer.style.zIndex = 2;
@@ -689,7 +804,6 @@
 
       this.currentIndex = i;
       this.resetAutoplay();
-      // pre-warm buffer update loop
       this._startProgressLoop();
     }
 
@@ -736,12 +850,14 @@
       bar.style.width = pct + '%';
       bar.setAttribute('aria-valuenow', String(Math.round(pct)));
 
-      // buffered: find last buffered range end
       if (buf && layer.buffered && layer.buffered.length) {
         try {
-          const ranges = layer.buffered;
-          const last = ranges.length - 1;
-          const end = ranges[last].end || 0;
+          // choose last buffered range that starts before currentTime or last range end
+          let end = 0;
+          for (let i=0;i<layer.buffered.length;i++){
+            try { if (layer.buffered.start(i) <= cur) end = layer.buffered.end(i); }
+            catch(e){ end = layer.buffered.end(layer.buffered.length-1); }
+          }
           const bufPct = (dur > 0) ? Math.min(100, (end / dur) * 100) : 0;
           buf.style.width = bufPct + '%';
         } catch (e) {
@@ -751,19 +867,19 @@
         buf.style.width = '0%';
       }
 
-      // stop RAF if paused & user manually paused
       if (layer.paused && this.isManual) {
         this._stopProgressLoop();
       }
     }
 
-    // -------- click-to-play/pause + overlay animations --------
+    // -------- click-to-play/pause (ignora progress-wrap) --------
     _bindClickToToggle() {
       const playerArea = this.container.querySelector('.gallery-player') || this.container;
       if (!playerArea) return;
 
       playerArea.addEventListener('click', (ev) => {
-        if (ev.target.closest('.control-btn') || ev.target.closest('.mute-toggle')) return;
+        // IGNORA click sulla progress bar o sui controlli
+        if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn') || ev.target.closest('.mute-toggle')) return;
         const front = this._getFrontLayer();
         if (!front) return;
 
@@ -771,52 +887,184 @@
           front.play().catch(()=>{});
           this._onUserInteraction(); // manual mode
           this._startProgressLoop();
-          this._showPlayTransient(); // quick play effect
+          this._showPlayTransient();
         } else {
           front.pause();
           this._onUserInteraction();
           this._stopProgressLoop();
-          this._showPausedOverlay(); // show pause icon
+          this._showPausedOverlay();
         }
       });
     }
 
+    // -------- progress interactions (seek click/drag) --------
+    _bindProgressInteractions() {
+      const wrap = this.progressWrap;
+      if (!wrap) return;
+      let dragging = false;
+      let pointerId = null;
+
+      const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
+
+      const updateSeekFromEvent = (ev) => {
+        const rect = wrap.getBoundingClientRect();
+        const x = ev.clientX - rect.left;
+        const frac = clamp(x / rect.width);
+        const front = this._getFrontLayer();
+        const dur = front && front.duration ? front.duration : 0;
+        if (dur > 0) {
+          try { front.currentTime = frac * dur; } catch(e){}
+          if (this.progressBar) this.progressBar.style.width = (frac*100) + '%';
+        }
+      };
+
+      wrap.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation(); // important: don't bubble to player click
+        dragging = true;
+        pointerId = ev.pointerId;
+        wrap.setPointerCapture?.(pointerId);
+        wrap.classList.add('dragging');
+        this._onUserInteraction(); // set manual mode & stop autoplay
+        this.clearAutoplay();
+        this._stopProgressLoop();
+        updateSeekFromEvent(ev);
+      });
+
+      wrap.addEventListener('pointermove', (ev) => {
+        if (!dragging) return;
+        updateSeekFromEvent(ev);
+      });
+
+      const stopDrag = (ev) => {
+        if (!dragging) return;
+        dragging = false;
+        try { wrap.releasePointerCapture?.(pointerId); } catch (e) {}
+        wrap.classList.remove('dragging');
+        pointerId = null;
+        const front = this._getFrontLayer();
+        if (front && !front.paused) this._startProgressLoop();
+      };
+
+      wrap.addEventListener('pointerup', (ev) => { ev.preventDefault(); ev.stopPropagation(); stopDrag(ev); });
+      wrap.addEventListener('pointercancel', (ev) => { stopDrag(ev); });
+      wrap.addEventListener('lostpointercapture', (ev) => { stopDrag(ev); });
+    }
+
+    // -------- overlay animations for play/pause & spinner --------
+    _showPausedOverlay() {
+      if (!this.playOverlay) return;
+      // cancel any play transient timeouts
+      if (this._pauseTimeoutId) { clearTimeout(this._pauseTimeoutId); this._pauseTimeoutId = null; }
+
+      // ensure spinner hidden
+      this.playOverlay.classList.remove('buffering');
+      const spinner = this.playOverlay.querySelector('.buffer-spinner');
+      if (spinner) { spinner.style.opacity = '0'; }
+
+      // mark paused class (JS consumer will remove it when play)
+      this.playOverlay.classList.add('paused');
+
+      // inline style fallback to ensure visibility
+      this.playOverlay.style.display = 'flex';
+      this.playOverlay.style.opacity = '1';
+
+      // ensure pause icon visible (inline fallback)
+      const pa = this.playOverlay.querySelector('.icon-pause');
+      const ip = this.playOverlay.querySelector('.icon-play');
+      if (pa) { pa.style.display = 'block'; pa.style.opacity = '1'; pa.style.transform = 'translate(-50%,-50%) scale(1)'; }
+      if (ip) { ip.style.opacity = '0'; ip.style.display = 'block'; ip.style.transform = 'translate(-50%,-50%) scale(0.9)'; }
+    }
+
+    // Show play transient — if paused present, morph pause -> play -> hide
     _showPlayTransient() {
       if (!this.playOverlay) return;
-      // ensure play icon visible, pause hidden
+
+      const pa = this.playOverlay.querySelector('.icon-pause');
+      const ip = this.playOverlay.querySelector('.icon-play');
+      const spinner = this.playOverlay.querySelector('.buffer-spinner');
+
+      // 1) nascondi IMMEDIATAMENTE l'icona pause (inline) — questo soddisfa la tua richiesta
+      if (pa) {
+        try {
+          pa.style.transition = 'none';
+          pa.style.opacity = '0';
+          pa.style.transform = 'translate(-50%,-50%) scale(0.88)';
+          // opzionale: rimuovi display in modo da non catturare rendering
+          pa.style.display = 'none';
+        } catch (e) {}
+      }
+      // rimuovi classe paused subito
       this.playOverlay.classList.remove('paused');
-      // animate: show briefly with zoom + fade out
-      this.playOverlay.classList.remove('animate-out');
-      this.playOverlay.classList.add('animate-in', 'transient');
-      // if GSAP available use for smoother effect
+
+      // 2) hide spinner (if any) to make play animation visible
+      if (spinner) {
+        spinner.style.opacity = '0';
+        spinner.style.display = 'none';
+        this.playOverlay.classList.remove('buffering');
+      }
+
+      // make overlay visible for animation
+      this.playOverlay.style.display = 'flex';
+      this.playOverlay.style.opacity = '1';
+
+      // prepare play icon
+      if (ip) {
+        ip.style.display = 'block';
+        ip.style.opacity = '1';
+        ip.style.transform = 'translate(-50%,-50%) scale(0.95)';
+        ip.style.zIndex = '9999';
+      }
+
+      // animate: play zoom + fade out
       if (window.gsap) {
-        gsap.fromTo(this.playOverlay.querySelector('.icon-play'), { scale: 0.9, opacity: 1 }, { scale: 1.3, opacity: 0, duration: 0.6, ease: 'power2.out' });
-        // cleanup after
-        setTimeout(() => {
-          this.playOverlay.classList.remove('animate-in', 'transient');
-        }, 620);
+        // use GSAP for smoother animation
+        gsap.fromTo(ip, { scale: 0.95, opacity: 1 }, {
+          scale: 1.28,
+          opacity: 0,
+          duration: PLAY_TRANSIENT_MS / 1000,
+          ease: 'power2.out',
+          onComplete: () => {
+            // cleanup: hide play icon and overlay if nothing else active
+            try { ip.style.opacity = '0'; ip.style.display = 'none'; } catch (e) {}
+            if (!this.playOverlay.classList.contains('buffering') && !this.playOverlay.classList.contains('paused')) {
+              this.playOverlay.style.opacity = '0';
+              setTimeout(()=> this.playOverlay.style.display = 'none', 220);
+            }
+          }
+        });
       } else {
-        // fallback: use CSS classes + timeout
-        setTimeout(() => { this.playOverlay.classList.remove('animate-in', 'transient'); }, 620);
+        // fallback: use CSS transition + timeout
+        ip.style.transition = `transform ${PLAY_TRANSIENT_MS}ms cubic-bezier(.22,.9,.3,1), opacity ${PLAY_TRANSIENT_MS}ms ease`;
+        requestAnimationFrame(() => {
+          ip.style.transform = 'translate(-50%,-50%) scale(1.28)';
+          ip.style.opacity = '0';
+        });
+        setTimeout(() => {
+          try { ip.style.display = 'none'; ip.style.opacity = '0'; } catch(e){}
+          if (!this.playOverlay.classList.contains('buffering') && !this.playOverlay.classList.contains('paused')) {
+            this.playOverlay.style.opacity = '0';
+            setTimeout(()=> this.playOverlay.style.display = 'none', 220);
+          }
+        }, PLAY_TRANSIENT_MS + 20);
       }
     }
 
-    _showPausedOverlay() {
-      if (!this.playOverlay) return;
-      // show pause icon statically (no transient fade)
-      this.playOverlay.classList.remove('animate-in', 'animate-out', 'transient');
-      this.playOverlay.classList.add('paused');
-      // keep it visible until next play (JS will remove .paused when play occurs)
-    }
+
 
     destroy() {
       this.clearAutoplay();
       this._stopProgressLoop();
+      if (this._pauseTimeoutId) { clearTimeout(this._pauseTimeoutId); this._pauseTimeoutId = null; }
       try {
         this.layerA.pause(); this.layerB.pause();
       } catch (e) {}
     }
   }
+
+
+
+
 
 
 
