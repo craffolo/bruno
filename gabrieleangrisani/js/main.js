@@ -1,24 +1,17 @@
-// js/main.js (UPDATED: consolidated mute, mouse-idle overlays, gallery uses only topMuteBtn)
+// js/main.js — aggiornato: Home immersiva automatic crossfade (2 layer), gallery & barbas intact
 (() => {
-  /* ---------------- CONFIG / TIMINGS (modifica qui) ---------------- */
-  // Intervalli separati per autoplay
-  const HOME_AUTOPLAY_INTERVAL_MS = 5000;     // autoplay carosello home
-  const GALLERY_AUTOPLAY_INTERVAL_MS = 15000;  // autoplay gallery player
+  /* ---------------- CONFIG / TIMINGS ---------------- */
+  const HOME_AUTOPLAY_INTERVAL_MS = 5000;     // autoplay carosello home (modificabile)
+  const GALLERY_AUTOPLAY_INTERVAL_MS = 15000; // autoplay gallery player
 
-  // overlay / animazioni
-  const SLIDE_CHANGE_OVERLAY_MS = 1500; // overlay visibile al cambio slide
-  const PLAY_TRANSIENT_MS = 500;        // durata effetto play transient (ms)
+  const SLIDE_CHANGE_OVERLAY_MS = 1500;
+  const PLAY_TRANSIENT_MS = 500;
+  const MOUSE_IDLE_MS = 2000; // per gallery overlay
 
-  // Idle mouse timeout for overlays (ms)
-  const MOUSE_IDLE_MS = 2000; // 2s
-
-  // HOME_CAROUSEL: sorgenti dedicate al carosello della home (ottimizzate)
+  // Data arrays (possono essere sovrascritti globalmente)
   const HOME_CAROUSEL = (typeof window !== 'undefined' && window.HOME_CAROUSEL) ? window.HOME_CAROUSEL : [];
-
-  const FEATURED_IDS = ['cm_festafinecampagna25', 'alici_di_menaica_teaser', 'partenope_fashion_film', 'cast_ride_or_die', 'evan_primo_marzo', 'niven_alpaca_freestyle', 'sevdaliza_human', 'sinestesie', 'waldeinsamkeit', 'studio_notarile_dausilio'];
-
+  const FEATURED_IDS = [ 'alici_di_menaica_teaser', 'studio_notarile_dausilio','partenope_fashion_film', 'cast_ride_or_die', 'evan_primo_marzo', 'niven_alpaca_freestyle', 'sevdaliza_human', 'sinestesie', 'waldeinsamkeit'];
   const VIDEOS = (typeof window !== 'undefined' && window.VIDEOS) ? window.VIDEOS : [
-    // Corporate
     { 
       id: 'di-agostino-costruzioni', 
       src: 'https://jellybruno.home04.cyou/Items/afedd456c88d3f5dd2d53b6de535e9eb/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
@@ -252,7 +245,6 @@
     },
 
   ];
-
   const CATEGORIES = ['Corporate', 'Documentaries', 'Fashion', 'Fitness', 'Food', 'Music', 'Shortfilm', 'Spot'];
 
   /* ---------------- HELPERS ---------------- */
@@ -275,6 +267,7 @@
     $$('video', scope).forEach(v => { try { v.pause(); } catch (e) {} });
   }
 
+  /* persistent mute preference (used by GalleryPlayer) */
   const MUTE_KEY = 'site_mute_pref';
   function readMute() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
   function writeMute(v) { try { localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) {} }
@@ -326,184 +319,117 @@
     });
   }
 
-  /* ---------------- VideoCarousel (Home) ---------------- */
-  class VideoCarousel {
+  /* ---------------- HomeCarousel (immersive, automatic, 2-layer crossfade) ---------------- */
+  class HomeCarousel {
     constructor(opts) {
       this.container = opts.container;
-      this.videoEl = this.container.querySelector('.carousel-video');
-      this.prevBtn = this.container.querySelector(opts.prevSelector);
-      this.nextBtn = this.container.querySelector(opts.nextSelector);
-      this.titleEl = this.container.querySelector('.carousel-title');
-      this.descEl = this.container.querySelector('.carousel-desc');
-      this.linkEl = this.container.querySelector(opts.linkSelector);
-      this.muteBtn = opts.muteBtn || null;
       this.slides = opts.slides || [];
-      this.idx = 0;
-      this.autoplayTimer = null;
-      this.savedTime = {};
-      this.muted = false;
-      this._saveInterval = null;
+      this.interval = opts.interval || HOME_AUTOPLAY_INTERVAL_MS;
+      this.layerA = this.container.querySelector('.layer-a');
+      this.layerB = this.container.querySelector('.layer-b');
+      this.active = 'A'; // 'A' or 'B'
+      this.index = 0;
+      this.timer = null;
 
       if (this.container) instanceMap.set(this.container, this);
-      this.init();
+      this._init();
     }
 
-    init() {
-      if (!this.container || !this.videoEl) return;
-      this.videoEl.playsInline = true;
-      this.applyMute();
-
-      if (this.prevBtn) this.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); this.go(this.idx - 1); this.resetAutoplay(); });
-      if (this.nextBtn) this.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); this.go(this.idx + 1); this.resetAutoplay(); });
-
-      if (this.linkEl) {
-        this.linkEl.setAttribute('href', '#');
-        this.linkEl.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          const meta = this.slides[this.idx];
-          if (meta) try { sessionStorage.setItem('selectedVideoId', meta.id); } catch (e) {}
-        });
-      }
-
-      if (this.muteBtn) this.updateMuteButton();
-      this._bindPointer();
-
-      this.videoEl.addEventListener('playing', () => {
-        if (this._saveInterval) clearInterval(this._saveInterval);
-        this._saveInterval = setInterval(() => {
-          try { this.savedTime[this.slides[this.idx].id] = this.videoEl.currentTime || 0; } catch (e) {}
-        }, 1000);
-      });
-      this.videoEl.addEventListener('pause', () => {
-        if (this._saveInterval) { clearInterval(this._saveInterval); this._saveInterval = null; }
-        try { this.savedTime[this.slides[this.idx].id] = this.videoEl.currentTime || 0; } catch (e) {}
+    _init() {
+      if (!this.container || !this.layerA || !this.layerB) return;
+      // ensure attributes for autoplay (muted + playsinline)
+      [this.layerA, this.layerB].forEach(v => {
+        v.playsInline = true;
+        v.muted = true;
+        v.loop = false;
+        v.preload = 'auto';
+        v.classList.remove('active','inactive');
       });
 
-      this.setSlide(0);
-      this.resetAutoplay();
-    }
+      // initial state
+      this.layerA.classList.add('active');
+      this.layerB.classList.add('inactive');
 
-    updateMuteButton() {
-      if (!this.muteBtn) return;
-      this.muteBtn.classList.toggle('muted', !!this.muted);
-      this.muteBtn.setAttribute('aria-pressed', this.muted ? 'true' : 'false');
-      this.muteBtn.setAttribute('aria-label', this.muted ? 'Attiva audio' : 'Disattiva audio');
-    }
-
-    applyMute() {
-      try {
-        const muted = readMute();
-        this.muted = muted;
-        const v = this.videoEl;
-        if (!v) return;
-        v.muted = !!muted;
-        v.volume = muted ? 0 : 1;
-        if (!v.paused) {
-          v.pause();
-          const curTime = v.currentTime;
-          setTimeout(() => {
-            try { v.currentTime = curTime; v.play().catch(()=>{}); } catch (e) {}
-          }, 80);
+      // load first video and start
+      if (this.slides.length === 0) {
+        // fallback: load first video from VIDEOS array
+        if (Array.isArray(VIDEOS) && VIDEOS.length) {
+          this.slides = VIDEOS.slice(0, 5);
+        } else {
+          log('[home] no slides available');
+          return;
         }
-      } catch (e) {
-        console.warn('[mute] applyMute error', e);
       }
+      this._loadAndPlayInitial();
+
+      // start automatic loop
+      this._startLoop();
     }
 
-    toggleMute() {
-      this.muted = !this.muted;
-      this.applyMute();
-      this.updateMuteButton();
+    _loadAndPlayInitial() {
+      const meta = this.slides[this.index];
+      if (!meta) return;
+      this.layerA.src = meta.src || '';
+      this.layerA.load();
+      this.layerA.play().catch(()=>{});
     }
 
-    saveState(oldIdx) {
-      try {
-        const cur = this.slides[oldIdx];
-        if (!cur) return;
-        this.savedTime[cur.id] = Math.max(0, Math.min(this.videoEl.duration || 0, this.videoEl.currentTime || 0));
-      } catch (e) {}
+    _startLoop() {
+      if (this.timer) clearInterval(this.timer);
+      this.timer = setInterval(()=> this._switchTo((this.index + 1) % this.slides.length), this.interval);
     }
 
-    setSlide(i) {
-      if (!this.slides.length) return;
-      i = (i + this.slides.length) % this.slides.length;
-      this.saveState(this.idx);
-      this.idx = i;
-      const meta = this.slides[this.idx];
+    _switchTo(nextIndex) {
+      const activeEl = this.active === 'A' ? this.layerA : this.layerB;
+      const inactiveEl = this.active === 'A' ? this.layerB : this.layerA;
+      const meta = this.slides[nextIndex];
       if (!meta) return;
 
-      try { this.videoEl.pause(); } catch (e) {}
-      this.applyMute();
-      this.videoEl.removeAttribute('src');
-      this.videoEl.src = meta.src;
-      this.videoEl.load();
+      // prepare inactive
+      inactiveEl.src = meta.src || '';
+      inactiveEl.load();
 
-      const onLoaded = () => {
-        try {
-          const t = Math.min(this.savedTime[meta.id] || 0, Math.max(0, this.videoEl.duration || Infinity));
-          if (t > 0 && !Number.isNaN(t)) this.videoEl.currentTime = t;
-        } catch (e) {}
-        if (this.titleEl) this.titleEl.textContent = meta.title || '';
-        if (this.descEl) this.descEl.textContent = meta.desc || '';
-        this.videoEl.play().catch(()=>{});
-        this.videoEl.removeEventListener('loadedmetadata', onLoaded);
-      };
-      this.videoEl.addEventListener('loadedmetadata', onLoaded);
-
-      const overlay = this.container.querySelector('.carousel-overlay');
-      if (overlay) {
-        overlay.classList.add('force-visible');
-        setTimeout(() => overlay.classList.remove('force-visible'), SLIDE_CHANGE_OVERLAY_MS);
-      }
-    }
-
-    go(i) {
-      if (!this.slides.length) return;
-      const next = (i + this.slides.length) % this.slides.length;
-      if (window.gsap) {
-        const tl = gsap.timeline();
-        tl.to(this.videoEl, { opacity: 0, duration: 0.28 });
-        tl.add(() => this.setSlide(next));
-        tl.to(this.videoEl, { opacity: 1, duration: 0.42 }, '>-0.02');
-      } else {
-        this.videoEl.style.opacity = 0;
-        setTimeout(() => { this.setSlide(next); this.videoEl.style.opacity = 1; }, 360);
-      }
-    }
-
-    resetAutoplay() {
-      if (this.autoplayTimer) clearInterval(this.autoplayTimer);
-      this.autoplayTimer = setInterval(() => this.go(this.idx + 1), HOME_AUTOPLAY_INTERVAL_MS);
-    }
-
-    _bindPointer() {
-      let startX = 0, deltaX = 0, isSwiping = false;
-      const TH = 60;
-      const c = this.container;
-      c.addEventListener('pointerdown', (ev) => {
-        if (ev.target.closest && (ev.target.closest('.control-btn') || ev.target.closest('a') || ev.target.closest('#navToggle'))) return;
-        startX = ev.clientX; deltaX = 0; isSwiping = true;
-        try { if (ev.pointerType === 'touch') ev.preventDefault(); } catch(e){}
-        c.setPointerCapture?.(ev.pointerId);
-      });
-      c.addEventListener('pointermove', (ev) => { if (!isSwiping) return; deltaX = ev.clientX - startX; });
-      const up = (ev) => {
-        if (!isSwiping) return;
-        isSwiping = false;
-        c.releasePointerCapture?.(ev.pointerId);
-        if (Math.abs(deltaX) > TH) {
-          if (deltaX < 0) this.go(this.idx + 1); else this.go(this.idx - 1);
-          this.resetAutoplay();
+      const onCan = () => {
+        inactiveEl.removeEventListener('canplay', onCan);
+        // play inactive, then crossfade
+        inactiveEl.play().catch(()=>{});
+        if (window.gsap) {
+          // crossfade + slight scale animation
+          inactiveEl.style.zIndex = 3;
+          activeEl.style.zIndex = 2;
+          gsap.set(inactiveEl, { opacity: 0, scale: 1.02 });
+          const tl = gsap.timeline();
+          tl.to(inactiveEl, { opacity: 1, scale: 1, duration: 1.2, ease: 'power2.out' }, 0);
+          tl.to(activeEl, { opacity: 0, scale: 1, duration: 1.2, ease: 'power2.out' }, 0);
+          tl.call(() => {
+            try { activeEl.pause(); } catch(e){}
+            activeEl.classList.remove('active'); activeEl.classList.add('inactive');
+            inactiveEl.classList.remove('inactive'); inactiveEl.classList.add('active');
+            this.active = (this.active === 'A') ? 'B' : 'A';
+            this.index = nextIndex;
+          });
+        } else {
+          // fallback: class toggle (CSS handles transition)
+          inactiveEl.classList.remove('inactive');
+          inactiveEl.classList.add('active');
+          activeEl.classList.remove('active');
+          activeEl.classList.add('inactive');
+          try { activeEl.pause(); } catch(e){}
+          this.active = (this.active === 'A') ? 'B' : 'A';
+          this.index = nextIndex;
         }
-        deltaX = 0;
       };
-      c.addEventListener('pointerup', up);
-      c.addEventListener('pointercancel', up);
-      c.addEventListener('pointerleave', up);
+
+      inactiveEl.addEventListener('canplay', onCan, { once: true });
+    }
+
+    destroy() {
+      if (this.timer) { clearInterval(this.timer); this.timer = null; }
+      try { this.layerA.pause(); this.layerB.pause(); } catch(e){}
     }
   }
 
-  /* ---------------- GalleryPlayer (double video) with progress + click-to-play ---------------- */
+  /* ---------------- GalleryPlayer (double video) with progress + click-to-play (left intact) ---------------- */
   class GalleryPlayer {
     constructor(opts) {
       this.container = opts.container;
@@ -659,7 +585,6 @@
         this.playOverlay.style.display = 'flex';
         this.playOverlay.style.opacity = '1';
       }
-      // top overlay remains mouse-controlled
     }
 
     _onPlaying(layer) {
@@ -1094,25 +1019,21 @@
     }
   }
 
-  /* ---------------- Home init ---------------- */
+  /* ---------------- Home init (creates HomeCarousel) ---------------- */
   function initHome(context = document) {
     const section = context.querySelector('#carouselSection');
     if (!section) return;
 
+    // build slides: prefer explicit HOME_CAROUSEL, otherwise featured ids mapping -> VIDEOS
     let slides = Array.isArray(HOME_CAROUSEL) && HOME_CAROUSEL.length ? HOME_CAROUSEL.slice() : FEATURED_IDS.map(id => VIDEOS.find(v => v.id === id)).filter(Boolean);
-    if (!slides.length) slides.push(...(Array.isArray(VIDEOS) ? VIDEOS.slice(0, Math.min(2, VIDEOS.length)) : []));
+    if (!slides.length) slides.push(...(Array.isArray(VIDEOS) ? VIDEOS.slice(0, Math.min(5, VIDEOS.length)) : []));
 
-    const muteBtn = context.querySelector('#muteToggle');
-    homeCarousel = new VideoCarousel({
+    // ensure section has two layers (layer-a / layer-b) in HTML; HomeCarousel expects them
+    homeCarousel = new HomeCarousel({
       container: section,
-      prevSelector: '#prevBtn',
-      nextSelector: '#nextBtn',
-      linkSelector: '#carouselLink',
       slides,
-      muteBtn
+      interval: HOME_AUTOPLAY_INTERVAL_MS
     });
-    if (muteBtn) homeCarousel.muteBtn = muteBtn;
-    if (homeCarousel.muteBtn) homeCarousel.updateMuteButton();
   }
 
   /* ---------------- Gallery init (uses GalleryPlayer) ---------------- */
@@ -1201,24 +1122,12 @@
     });
   }
 
-  /* ---------------- Delegated click: .mute-toggle (global fallback) ----------------
-     Kept simple: toggles persistent mute and updates existing instances (home/gallery)
-  */
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest && e.target.closest('.mute-toggle');
-    if (!btn) return;
-    const newVal = !readMute();
-    writeMute(newVal);
-    if (homeCarousel && typeof homeCarousel.updateMuteButton === 'function') homeCarousel.updateMuteButton();
-    if (galleryPlayer && typeof galleryPlayer.updateMuteButton === 'function') galleryPlayer.updateMuteButton();
-  });
-
   /* ---------------- RUN / BARBA ---------------- */
   function runInits(context = document) {
     initMenu(context);
     if (context.querySelector && context.querySelector('#carouselSection')) initHome(context);
     if (context.querySelector && context.querySelector('#galleryCarouselSection')) initGallery(context);
-    if (context.querySelector && context.querySelector('.facts')) initAbout(context);
+    if (context.querySelector && context.querySelector('.facts')) initAbout && initAbout(context); // initAbout is defined elsewhere in your original code if present
   }
 
   function initBarbaSafe(runInitial) {
@@ -1264,5 +1173,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 
-  log('main.js ready — gallery uses topMuteBtn only; mouse-idle overlays active.');
+  log('main.js ready — home immersive carousel enabled, gallery intact.');
 })();

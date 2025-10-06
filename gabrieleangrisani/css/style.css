@@ -5,36 +5,21 @@
   --header-glass: rgba(0,0,0,0.45);
   --card: #0f0f0f;
   --accent: #db4338; /* colore accent globale */
-  --accent-rgb: 219,67,56; /* utile per rgba(var(--accent-rgb), 0.12) */
-  /* ------- Custom filmmaker cursor (clapperboard) -------- */
-  /* data URI SVG clapperboard: colorato con #db4338 (accent)
-   hotspot: 12 12 (regola se vuoi spostarlo) */
+  --accent-rgb: 219,67,56;
   --cursor-clapper: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='28'%20height='28'%20viewBox='0%200%2028%2028'%3E%3Crect%20x='3'%20y='9'%20width='22'%20height='12'%20rx='2'%20fill='%23db4338'/%3E%3Cpath%20d='M3%209%20L11%204%20L25%2010%20L17%2015%20Z'%20fill='%23000000'%20opacity='0.85'/%3E%3Crect%20x='4'%20y='11'%20width='6'%20height='2'%20fill='%23fff'%20opacity='0.07'/%3E%3Crect%20x='18'%20y='11'%20width='4'%20height='2'%20fill='%23fff'%20opacity='0.07'/%3E%3C/svg%3E") 12 12, pointer;
-
 }
 
-/* Apply cursor globally to interactive elements + body */
-/* html, body { cursor: var(--cursor-clapper); } */
-
-/* Ensure interactive elements use the clapper cursor (override any UA defaults) */
-a, button, .control-btn, .nav-list li a, .grid-item, .control-btn, .category-list li button,  .carousel, .carousel * /*, .top-btn, .mobile-dropdown a, .hamburger, */ {
+/* cursor on interactive elements */
+a, button, .control-btn, .nav-list li a, .grid-item, .control-btn, .category-list li button,  .carousel, .carousel * {
   cursor: var(--cursor-clapper);
 }
-
-/* Keep text cursor on form controls */
 input, textarea, select { cursor: text; }
 
-/* Make sure non-interactive text doesn't accidentally show pointer:
-   (some browsers show text cursor on anchors without clickable area; enforce pointer) */
-a { cursor: var(--cursor-clapper); }
-
-/* Accessibility: keep focus outlines visible for keyboard users */
 a:focus, button:focus, .control-btn:focus, .top-btn:focus {
   outline: 2px solid rgba(var(--accent-rgb), 0.18);
   outline-offset: 4px;
   border-radius: 6px;
 }
-
 
 /* Reset + base */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -45,9 +30,9 @@ body.no-scroll{overflow:hidden}
 /* mobile dropdown default hidden (important!) */
 .mobile-dropdown{display:none}
 
-/* ---------- HEADER ---------- */
+/* ---------- HEADER (ora overlay fisso) ---------- */
 .site-header{
-  position:sticky;
+  position: fixed;            /* changed from sticky -> fixed so header overlays the immersive hero */
   top:0;
   left:0;
   right:0;
@@ -56,7 +41,7 @@ body.no-scroll{overflow:hidden}
   align-items:center;
   justify-content:space-between;
   padding:0 20px;
-  z-index:2400;
+  z-index:3000;               /* alto per stare sopra il video */
   background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.25));
   backdrop-filter: blur(8px);
   border-bottom:1px solid rgba(255,255,255,0.03);
@@ -93,16 +78,16 @@ body.no-scroll{overflow:hidden}
   font-weight:600;
 }
 .nav-list li a:hover, .nav-list li a:focus{
-  /* replaced border-hover with glow (handled in hover below) */
   outline: none;
 }
 
 /* ---------- LAYOUT ---------- */
 /* reduce the top padding so content starts immediately under header */
-main{padding-top:80px}
+/* main{padding-top:80px} */
 .page-title{padding:8px 20px 0;font-size:1.6rem;text-align:center}
+.page-home {margin-top:0}
 
-/* ---------- CAROUSEL ---------- */
+/* ---------- CAROUSEL (legacy rules kept) ---------- */
 .carousel{position:relative;width:100%;margin:8px auto 24px;border-radius:12px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center;box-shadow:0 30px 80px rgba(0,0,0,.6)}
 .carousel--full{height:calc(100vh - 110px);max-height:980px}
 .carousel--gallery{height:60vh;max-height:640px;margin:28px auto;border-radius:12px;width:90%;max-width:1100px}
@@ -140,27 +125,20 @@ main{padding-top:80px}
   transform: translateY(-2px);
 }
 .carousel-title{font-size:2.6rem;text-transform:uppercase;letter-spacing:-1px;margin-bottom:6px}
-.carousel-desc{color:var(--muted);font-size:1rem;margin-top:4px}
 
-/* ---------- MUTE TOGGLE (top-right, outside overlay) ---------- */
-.mute-toggle{
-  position:absolute;
-  top:14px;
-  right:14px;
-  width:48px;height:48px;border-radius:999px;
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;z-index:9999;background:none;border:1px solid transparent;transition:all .18s;
-  pointer-events:auto;
-}
-.mute-toggle:hover{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.14);transform:scale(1.04)}
-.mute-toggle .icon-speaker{color:#fff;opacity:.95;transition:all .18s}
-.mute-toggle.muted .icon-speaker{color:#aaa}
-.mute-toggle .cross{opacity:0}
-.mute-toggle.muted .waves{opacity:0}
-.mute-toggle.muted .cross{opacity:1}
 
+/* ---------- NOTE:
+   Home immersive carousel styling is defined below and scoped to .carousel--immersive
+   to avoid breaking gallery / other carousels.
+*/
+
+/* ---------- MUTE TOGGLE (REMOVED for home) ----------
+   The old .mute-toggle that lived inside the home carousel was removed on purpose.
+   Gallery still uses .top-overlay / .top-btn .mute-btn — those rules are kept below.
+*/
 
 /* ==================================================== GALLERY PAGE ==================================================== */
+.page-gallery{margin-top: 80px;}
 /* ------ Category ------- */
 .category-nav{display:flex;justify-content:center;padding:18px 12px}
 .category-list{display:flex;gap:10px;list-style:none;overflow-x:auto;padding:6px 12px;margin:0}
@@ -341,7 +319,6 @@ main{padding-top:80px}
 /* ensure the progress bar still sits above gallery overlays */
 .carousel .progress-wrap { z-index: 40; }
 
-
 /* ---------- Overlay icons centered & aligned (forced absolute centering) ---------- */
 .play-overlay {
   position: absolute;
@@ -424,7 +401,6 @@ main{padding-top:80px}
   z-index: 5;
 }
 
-
 /* ---------------- Grid thumbnails: blend into background + glow on hover ---------------- */
 .gallery-grid {
   display:grid;
@@ -437,7 +413,6 @@ main{padding-top:80px}
   text-decoration:none;
   color:inherit;
   position:relative;
-  /* transition:transform .28s,box-shadow .28s; */
   background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
   border: 1px solid rgba(255,255,255,0.03);
   overflow: hidden;
@@ -487,8 +462,8 @@ main{padding-top:80px}
   opacity:1
 }
 
-
 /* ==================================================== ABOUT PAGE ==================================================== */
+.page-about{margin-top:0}
 .bio{padding:120px 20px 60px;text-align:center}
 .bio-card{background:linear-gradient(180deg,#111,#000);border:1px solid rgba(255,255,255,.08);padding:40px;border-radius:16px;margin:0 auto;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
 .profile-img{width:150px;height:150px;object-fit:cover;border-radius:50%;margin-bottom:12px;transition:transform .36s}
@@ -510,14 +485,49 @@ main{padding-top:80px}
 .time-item span{color:var(--muted)}
 .time-item:hover{transform:translateY(-6px);box-shadow:0 18px 60px rgba(0,0,0,.6)}
 
-/* video page */
-.video-page{padding:140px 20px 80px;max-width:1100px;margin:0 auto;text-align:center}
-.video-wrap{background:#000;border-radius:12px;padding:8px;max-width:960px;margin:0 auto}
-.video-wrap video{width:100%;height:auto;max-height:70vh;display:block}
-.video-desc{margin-top:12px;color:var(--muted);font-size:1rem}
 
+/* ======================================== IMMERSIVE HOME CAROUSEL ============================= */
+/* This block is scoped so it won't affect gallery/player components */
+.hero-wrap--immersive,
+.carousel--immersive {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
 
-/* ======================================== RESPONSIVE (mobile layout) ======================================= */
+/* Fullscreen absolute stacked video layers (two layers: .layer-a .layer-b) */
+.carousel--immersive .carousel-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 1.6s ease-in-out, transform 1.8s ease;
+  will-change: opacity, transform;
+  z-index: 0;
+  filter: saturate(1.02) contrast(1.03);
+}
+
+/* Layer z-index & state */
+.carousel--immersive .carousel-video.layer-a { z-index: 2; }
+.carousel--immersive .carousel-video.layer-b { z-index: 1; }
+
+.carousel--immersive .carousel-video.active { opacity: 1; transform: scale(1.02); z-index: 3; }
+.carousel--immersive .carousel-video.inactive { opacity: 0; transform: scale(1); z-index: 2; }
+
+/* IMPORTANT: disable interactions only for immersive home so other carousels/galleries remain interactive */
+.carousel--immersive, .carousel--immersive * {
+  pointer-events: none !important;
+  user-select: none !important;
+  cursor: default !important;
+}
+
+/* ========================= RESPONSIVE (mobile layout) ========================= */
 @media (max-width:900px){
   .hamburger{display:inline-flex}
   .nav-list{display:none} /* replaced by mobile dropdown */
@@ -527,16 +537,12 @@ main{padding-top:80px}
   .carousel--full{height:calc(100vh - 100px)}
   .carousel--gallery{height:45vh}
   .carousel-title{font-size:1.4rem}
-  .carousel-desc{font-size:.95rem}
 
-  /* overlay smaller on mobile: less padding and smaller text */
   .carousel-overlay{justify-content:flex-end}
   .carousel-bottom{padding:12px 16px}
   .carousel-text a{padding:6px 12px}
   .carousel-title{font-size:1.2rem}
-  .carousel-desc{font-size:.9rem}
 
-  /* mobile dropdown overlay (appears under header, absolute but not pushing content) */
   .mobile-dropdown {
     position: absolute;
     align-items: center;
@@ -568,28 +574,7 @@ main{padding-top:80px}
     box-shadow: 0 8px 28px rgba(255,221,85,0.08);
   }
 
-  /* on small screens keep gallery player progress visible and not too big */
   .progress-wrap{height:3px}
-
 }
-
-
-/* 🔧 =============================== FIX layout: rimuovi spazio sotto header =============================== */
-header {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-main, section, .carousel-container {
-  margin-top: 0 !important;
-  padding-top: 0 !important;
-}
-
-body {
-  overflow-x: hidden;
-}
-
-
-
 
 
