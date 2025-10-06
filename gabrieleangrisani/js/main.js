@@ -1,58 +1,257 @@
+// js/main.js (PATCH - robusto contro "VIDEOS is not defined")
 (() => {
   /* ---------------- CONFIG ---------------- */
-  const AUTOPLAY_INTERVAL_MS = 4000;
+  const AUTOPLAY_INTERVAL_MS = 10000;
   const SLIDE_CHANGE_OVERLAY_MS = 1000;
+
+  // HOME_CAROUSEL: sorgenti dedicate al carosello della home (ottimizzate)
+  // Modifica questi src con i preview / teaser reali (piccoli/leggeri).
+  const HOME_CAROUSEL = (typeof window !== 'undefined' && window.HOME_CAROUSEL) ? window.HOME_CAROUSEL : [
+    // { id: 'home_preview_1', src: 'media/carousel/preview1.mp4', title: 'Preview 1' },
+    // { id: 'home_preview_2', src: 'media/carousel/preview2.mp4', title: 'Preview 2' },
+    // { id: 'home_preview_3', src: 'media/carousel/preview3.mp4', title: 'Preview 3' }
+  ];
+
+  // FEATURED_IDS per fallback (se vuoi mantenere la selezione per la home)
   const FEATURED_IDS = ['cm_festafinecampagna25', 'alici_di_menaica_teaser', 'partenope_fashion_film', 'cast_ride_or_die', 'evan_primo_marzo', 'niven_alpaca_freestyle', 'sevdaliza_human', 'sinestesie', 'waldeinsamkeit', 'studio_notarile_dausilio'];
-  const VIDEOS = [
+
+  // VIDEOS: la galleria userà SOLO questo array. Se esiste window.VIDEOS (caricato altrove) lo rispettiamo.
+  const VIDEOS = (typeof window !== 'undefined' && window.VIDEOS) ? window.VIDEOS : [
     // Corporate
-    { id: 'di-agostino-costruzioni', src: 'https://jellybruno.home04.cyou/Items/afedd456c88d3f5dd2d53b6de535e9eb/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Di Agostino Costruzioni', desc: 'Corporate video - architecture & construction', descrizione: 'Video aziendale che mette in risalto l\'architettura e la costruzione.', category: 'Corporate' },
-    { id: 'tecnocarpoint_trailer', src: '', title: 'Tecnocarpoint Trailer', desc: 'Corporate video - cars & showroom', descrizione: 'Trailer aziendale che presenta auto e showroom.', category: 'Corporate' },
-    { id: 'villa_utopia', src: 'https://jellybruno.home04.cyou/Items/9dcd31f4187d033811d211958d7fc56a/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Villa Utopia', desc: 'Corporate video - real estate & luxury', descrizione: 'Video aziendale che mette in risalto il settore immobiliare di lusso.', category: 'Corporate' },
+    { 
+      id: 'di-agostino-costruzioni', 
+      src: 'https://jellybruno.home04.cyou/Items/afedd456c88d3f5dd2d53b6de535e9eb/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Di Agostino Costruzioni', 
+      desc: 'Corporate video - architecture & construction', 
+      category: 'Corporate' 
+    },
+    { 
+      id: 'tecnocarpoint_trailer', 
+      src: '', 
+      title: 'Tecnocarpoint Trailer', 
+      desc: 'Corporate video - cars & showroom', 
+      category: 'Corporate' 
+    },
+    { 
+      id: 'villa_utopia', 
+      src: 'https://jellybruno.home04.cyou/Items/9dcd31f4187d033811d211958d7fc56a/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Villa Utopia', 
+      desc: 'Corporate video - real estate & luxury', 
+      category: 'Corporate' 
+    },
     
     // Documentaries
-    { id: 'alici_di_menaica_mini_doc', src: 'https://jellybruno.home04.cyou/Items/eb10ccc7da5c8da500798977db515274/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Alici di Menaica - Mini Doc', desc: 'Documentary - fishing & tradition', descrizione: 'Documentario che esplora la pesca tradizionale delle alici.', category: 'Documentaries' },
-    { id: 'alici_di_menaica_teaser', src: 'https://jellybruno.home04.cyou/Items/159939ff98105cb84976523d4a8747f0/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Alici di Menaica - Teaser', desc: 'Documentary teaser - fishing & tradition', descrizione: 'Teaser del documentario che esplora la pesca tradizionale delle alici.', category: 'Documentaries' },
-    { id: 'cm_festafinecampagna25', src: 'https://jellybruno.home04.cyou/Items/a3af8e041039eaa5b24a1df30e33ac34/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'CM Festa Fine Campagna 25', desc: 'Documentary - community & celebration', descrizione: 'Documentario che cattura la celebrazione della comunità.', category: 'Documentaries' },
+    { 
+      id: 'alici_di_menaica_mini_doc', 
+      src: 'https://jellybruno.home04.cyou/Items/eb10ccc7da5c8da500798977db515274/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Alici di Menaica - Mini Doc', 
+      desc: 'Documentary - fishing & tradition',  
+      category: 'Documentaries' 
+    },
+    { 
+      id: 'alici_di_menaica_teaser', 
+      src: 'https://jellybruno.home04.cyou/Items/159939ff98105cb84976523d4a8747f0/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Alici di Menaica - Teaser', 
+      desc: 'Documentary teaser - fishing & tradition', 
+      category: 'Documentaries'
+    },
+    { 
+      id: 'cm_festafinecampagna25', 
+      src: 'https://jellybruno.home04.cyou/Items/a3af8e041039eaa5b24a1df30e33ac34/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'CM Festa Fine Campagna 25', 
+      desc: 'Documentary - community & celebration', 
+      category: 'Documentaries' 
+    },
 
     // Fashion
-    { id: 'alienation', src: 'https://jellybruno.home04.cyou/Items/d65a707cc651a33626c791874ef9db68/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Alienation', desc: 'Fashion video - avant-garde & surreal', descrizione: 'Video di moda che esplora temi avanguardisti e surreali.', category: 'Fashion' },
-    { id: 'partenope_fashion_film', src: 'https://jellybruno.home04.cyou/Items/38281e6c00e1ae9f8d4f2588a7a4cf95/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Partenope Fashion Film', desc: 'Fashion video - elegance & style', descrizione: 'Video di moda che mette in risalto eleganza e stile.', category: 'Fashion' },
+    { 
+      id: 'alienation', 
+      src: 'https://jellybruno.home04.cyou/Items/d65a707cc651a33626c791874ef9db68/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Alienation', 
+      desc: 'Fashion video - avant-garde & surreal', 
+      category: 'Fashion' 
+    },
+    { 
+      id: 'partenope_fashion_film', 
+      src: 'https://jellybruno.home04.cyou/Items/38281e6c00e1ae9f8d4f2588a7a4cf95/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Partenope Fashion Film', 
+      desc: 'Fashion video - elegance & style', 
+      category: 'Fashion' 
+    },
 
     // Fitness
-    { id: 'duetto_nuova_scheda', src: 'https://jellybruno.home04.cyou/Items/4864602a68758ea7d8fa9fd9b98491d5/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Duetto Nuova Scheda', desc: 'Fitness video - workout & training', descrizione: 'Video di fitness che mostra esercizi e allenamenti.', category: 'Fitness' },
-    { id: 'estratto_trailer_video_lungo', src: 'https://jellybruno.home04.cyou/Items/41f0285d1af84931e0b3dde5ed6c0f9e/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Estratto Trailer Video Lungo', desc: 'Fitness video - training & motivation', descrizione: 'Trailer di un video di fitness che ispira allenamento e motivazione.', category: 'Fitness' },
-    { id: 'reel_leg_day', src: 'https://jellybruno.home04.cyou/Items/8cfbfee50dde73127d8202247785db7b/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Reel Leg Day', desc: 'Fitness video - leg workout & strength', descrizione: 'Video di fitness che si concentra su esercizi per le gambe e la forza.', category: 'Fitness' },
-    { id: 'reel_presentazione', src: 'https://jellybruno.home04.cyou/Items/e6458e7d6f33fe808a553c9184c4d673/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Reel Presentazione', desc: 'Fitness video - introduction & overview', descrizione: 'Video di fitness che introduce e fornisce una panoramica degli allenamenti.', category: 'Fitness' },
-    { id: 'reel_workouts', src: 'https://jellybruno.home04.cyou/Items/b805a3ca2d59298839c94c0c184766d3/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Reel Workouts', desc: 'Fitness video - various workouts & routines', descrizione: 'Video di fitness che presenta vari allenamenti e routine.', category: 'Fitness' },
-    { id: 'tiktok_1_tom_plantz', src: 'https://jellybruno.home04.cyou/Items/fc2b5a2bbb447341d7fa1644fd9ae189/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'TikTok 1 Tom Plantz', desc: 'Fitness video - TikTok style workout', descrizione: 'Video di fitness in stile TikTok che mostra un allenamento rapido e coinvolgente.', category: 'Fitness' },
-    { id: 'tiktok_2_hipthrust', src: 'https://jellybruno.home04.cyou/Items/042ecf17e8a944e6d28689cdbf674ba4/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'TikTok 2 Hipthrust', desc: 'Fitness video - TikTok style hip thrust workout', descrizione: 'Video di fitness in stile TikTok che mostra un allenamento focalizzato sugli hip thrust.', category: 'Fitness' },
-    { id: 'tiktok_3_compilation', src: 'https://jellybruno.home04.cyou/Items/74b4f4339fcf531164603748a7cc1408/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'TikTok 3 Compilation', desc: 'Fitness video - TikTok style compilation', descrizione: 'Video di fitness in stile TikTok che presenta una compilation di esercizi rapidi e coinvolgenti.', category: 'Fitness' },
+    { 
+      id: 'duetto_nuova_scheda', 
+      src: 'https://jellybruno.home04.cyou/Items/4864602a68758ea7d8fa9fd9b98491d5/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Duetto Nuova Scheda', 
+      desc: 'Fitness video - workout & training', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'estratto_trailer_video_lungo', 
+      src: 'https://jellybruno.home04.cyou/Items/41f0285d1af84931e0b3dde5ed6c0f9e/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Estratto Trailer Video Lungo', 
+      desc: 'Fitness video - training & motivation', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'reel_leg_day', 
+      src: 'https://jellybruno.home04.cyou/Items/8cfbfee50dde73127d8202247785db7b/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Reel Leg Day', 
+      desc: 'Fitness video - leg workout & strength', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'reel_presentazione', 
+      src: 'https://jellybruno.home04.cyou/Items/e6458e7d6f33fe808a553c9184c4d673/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Reel Presentazione', 
+      desc: 'Fitness video - introduction & overview', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'reel_workouts', 
+      src: 'https://jellybruno.home04.cyou/Items/b805a3ca2d59298839c94c0c184766d3/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Reel Workouts', 
+      desc: 'Fitness video - various workouts & routines', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'tiktok_1_tom_plantz', 
+      src: 'https://jellybruno.home04.cyou/Items/fc2b5a2bbb447341d7fa1644fd9ae189/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'TikTok 1 Tom Plantz', 
+      desc: 'Fitness video - TikTok style workout', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'tiktok_2_hipthrust', 
+      src: 'https://jellybruno.home04.cyou/Items/042ecf17e8a944e6d28689cdbf674ba4/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'TikTok 2 Hipthrust', 
+      desc: 'Fitness video - TikTok style hip thrust workout', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'tiktok_3_compilation', 
+      src: 'https://jellybruno.home04.cyou/Items/74b4f4339fcf531164603748a7cc1408/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'TikTok 3 Compilation', 
+      desc: 'Fitness video - TikTok style compilation', 
+      category: 'Fitness' 
+    },
 
     // Food
-    { id: 'antonia_klugman_la_quinta_stagione', src: 'https://jellybruno.home04.cyou/Items/d9042551a90b1e420921d77d471e1261/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Antonia Klugman - La Quinta Stagione', desc: 'Food video - culinary art & seasonal ingredients', descrizione: 'Video culinario che celebra l\'arte culinaria e gli ingredienti stagionali.', category: 'Food' },
-    { id: 'cocktail_demo', src: 'https://jellybruno.home04.cyou/Items/14ff37f6bac567d8cc20dcda153ba097/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Cocktail Demo', desc: 'Food video - cocktail making & bartending', descrizione: 'Video che mostra l\'arte della preparazione di cocktail e del bartending.', category: 'Food' },
-    { id: 'intervista_varnelli', src: 'https://jellybruno.home04.cyou/Items/7f1b5ee20fb88fe586d71572c8da6956/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Intervista Varnelli', desc: 'Food video - interview & brand story', descrizione: 'Video intervista che racconta la storia del marchio Varnelli.', category: 'Food' },
-    { id: 'martina_caruso_la_quinta_stagione', src: 'https://jellybruno.home04.cyou/Items/867031d47a4efe9844b7060b8c4a02a7/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Martina Caruso - La Quinta Stagione', desc: 'Food video - culinary art & seasonal ingredients', descrizione: 'Video culinario che celebra l\'arte culinaria e gli ingredienti stagionali.', category: 'Food' },
-    { id: 'scarpariello_varnelli', src: 'https://jellybruno.home04.cyou/Items/45cd826b8b47e86564dd795de250a079/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Scarpariello Varnelli', desc: 'Food video - recipe & cooking demonstration', descrizione: 'Video che presenta una ricetta e una dimostrazione di cucina.', category: 'Food' },
-    { id: 'valeria_piccini_la_quinta_stagione', src: 'https://jellybruno.home04.cyou/Items/90ee38af27ed5dd0687e83d8cfd1e90b/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Valeria Piccini - La Quinta Stagione', desc: 'Food video - culinary art & seasonal ingredients', descrizione: 'Video culinario che celebra l\'arte culinaria e gli ingredienti stagionali.', category: 'Food' },
+    { 
+      id: 'antonia_klugman_la_quinta_stagione', 
+      src: 'https://jellybruno.home04.cyou/Items/d9042551a90b1e420921d77d471e1261/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Antonia Klugman - La Quinta Stagione', 
+      desc: 'Food video - culinary art & seasonal ingredients', 
+      category: 'Food' 
+    },
+    { 
+      id: 'cocktail_demo', 
+      src: 'https://jellybruno.home04.cyou/Items/14ff37f6bac567d8cc20dcda153ba097/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Cocktail Demo', 
+      desc: 'Food video - cocktail making & bartending', 
+      category: 'Food' 
+    },
+    { 
+      id: 'intervista_varnelli', 
+      src: 'https://jellybruno.home04.cyou/Items/7f1b5ee20fb88fe586d71572c8da6956/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Intervista Varnelli', 
+      desc: 'Food video - interview & brand story', 
+      category: 'Food' 
+    },
+    { 
+      id: 'martina_caruso_la_quinta_stagione', 
+      src: 'https://jellybruno.home04.cyou/Items/867031d47a4efe9844b7060b8c4a02a7/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Martina Caruso - La Quinta Stagione', 
+      desc: 'Food video - culinary art & seasonal ingredients', 
+      category: 'Food' 
+    },
+    { 
+      id: 'scarpariello_varnelli', 
+      src: 'https://jellybruno.home04.cyou/Items/45cd826b8b47e86564dd795de250a079/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Scarpariello Varnelli', 
+      desc: 'Food video - recipe & cooking demonstration', 
+      category: 'Food' 
+    },
+    { 
+      id: 'valeria_piccini_la_quinta_stagione', 
+      src: 'https://jellybruno.home04.cyou/Items/90ee38af27ed5dd0687e83d8cfd1e90b/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Valeria Piccini - La Quinta Stagione', 
+      desc: 'Food video - culinary art & seasonal ingredients', 
+      category: 'Food' 
+    },
 
     // Music
-    { id: 'cast_ride_or_die', src: 'https://jellybruno.home04.cyou/Items/e3c02ec29604a8e23bb2b22cf4d13b7c/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'CAST - RIDE OR DIE', desc: 'Music video - urban & dynamic', descrizione: 'Video musicale con temi urbani e dinamici.', category: 'Music' },
-    { id: 'eb_me_in_te', src: 'https://jellybruno.home04.cyou/Items/202700e20ff2c7f7f986f019d9a3dc1c/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'EB - ME IN TE', desc: 'Music video - romantic & emotional', descrizione: 'Video musicale con temi romantici ed emotivi.', category: 'Music' },
-    { id: 'evan_primo_marzo', src: 'https://jellybruno.home04.cyou/Items/490247b718a393c61736a2c5cf3e95f7/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'EVAN - PRIMO MARZO', desc: 'Music video - introspective & moody', descrizione: 'Video musicale con temi introspettivi e cupi.', category: 'Music' },
-    { id: 'niven_alpaca_freestyle', src: 'https://jellybruno.home04.cyou/Items/b6ce87128c53f9332b742fa435cf0eaa/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'NIVEN - ALPACA FREESTYLE', desc: 'Music video - energetic & vibrant', descrizione: 'Video musicale con temi energetici e vibranti.', category: 'Music' },
-    { id: 'sevdaliza_human', src: 'https://jellybruno.home04.cyou/Items/3493805ee55cff227e17a821a8ee5985/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'SEVDALIZA - HUMAN', desc: 'Music video - artistic & thought-provoking', descrizione: 'Video musicale con temi artistici e stimolanti.', category: 'Music' },
-    { id: 'sinestesie', src: 'https://jellybruno.home04.cyou/Items/ac45a1bc19fcf9f8845d62654886e7a1/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'SINESTESIE', desc: 'Music video - experimental & surreal', descrizione: 'Video musicale con temi sperimentali e surreali.', category: 'Music' },
-    
+    { 
+      id: 'cast_ride_or_die', 
+      src: 'https://jellybruno.home04.cyou/Items/e3c02ec29604a8e23bb2b22cf4d13b7c/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'CAST - RIDE OR DIE', 
+      desc: 'Music video - urban & dynamic', 
+      category: 'Music' 
+    },
+    { 
+      id: 'eb_me_in_te', 
+      src: 'https://jellybruno.home04.cyou/Items/202700e20ff2c7f7f986f019d9a3dc1c/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'EB - ME IN TE', 
+      desc: 'Music video - romantic & emotional', 
+      category: 'Music' 
+    },
+    { 
+      id: 'evan_primo_marzo', 
+      src: 'https://jellybruno.home04.cyou/Items/490247b718a393c61736a2c5cf3e95f7/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'EVAN - PRIMO MARZO', 
+      desc: 'Music video - introspective & moody', 
+      category: 'Music' 
+    },
+    { 
+      id: 'niven_alpaca_freestyle', 
+      src: 'https://jellybruno.home04.cyou/Items/b6ce87128c53f9332b742fa435cf0eaa/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'NIVEN - ALPACA FREESTYLE', 
+      desc: 'Music video - energetic & vibrant', 
+      category: 'Music' 
+    },
+    { 
+      id: 'sevdaliza_human', 
+      src: 'https://jellybruno.home04.cyou/Items/3493805ee55cff227e17a821a8ee5985/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'SEVDALIZA - HUMAN', 
+      desc: 'Music video - artistic & thought-provoking', 
+      category: 'Music' 
+    },
+    { 
+      id: 'sinestesie', 
+      src: 'https://jellybruno.home04.cyou/Items/ac45a1bc19fcf9f8845d62654886e7a1/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'SINESTESIE', 
+      desc: 'Music video - experimental & surreal', 
+      category: 'Music' 
+    },
+
     // Shortfilm
-    {id: 'chiacchiere_da_ascensore', src: 'https://jellybruno.home04.cyou/Items/45ec83c2dadbcf2c62d751129ad6808d/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Chiacchiere da Ascensore', desc: 'Short film - comedy & daily life', descrizione: 'Corto comico che esplora situazioni quotidiane in un ascensore.', category: 'Shortfilm' },
-    {id: 'waldeinsamkeit', src: 'https://jellybruno.home04.cyou/Items/0e10af99dee24604fe30d6425b2c3e2f/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Waldeinsamkeit', desc: 'Short film - nature & solitude', descrizione: 'Corto che esplora il tema della solitudine nella natura.', category: 'Shortfilm' },
+    {
+      id: 'chiacchiere_da_ascensore', 
+      src: 'https://jellybruno.home04.cyou/Items/45ec83c2dadbcf2c62d751129ad6808d/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Chiacchiere da Ascensore', 
+      desc: 'Short film - comedy & daily life', 
+      category: 'Shortfilm' 
+    },
+    {
+      id: 'waldeinsamkeit', 
+      src: 'https://jellybruno.home04.cyou/Items/0e10af99dee24604fe30d6425b2c3e2f/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Waldeinsamkeit', 
+      desc: 'Short film - nature & solitude', 
+      category: 'Shortfilm' 
+    },
 
     // Spot
-    { id: 'studio_notarile_dausilio', src: 'https://jellybruno.home04.cyou/Items/0a8f310e7ea2eac7b335e28bf853bcf2/Download?api_key=34cc06d14de0430c8c9715656f23abb3', title: 'Studio Notarile D\'Ausilio', desc: 'Spot - professional services', descrizione: 'Spot pubblicitario per servizi professionali notarili.', category: 'Spot' },
-    
-  
+    { 
+      id: 'studio_notarile_dausilio', 
+      src: 'https://jellybruno.home04.cyou/Items/0a8f310e7ea2eac7b335e28bf853bcf2/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      title: 'Studio Notarile D\'Ausilio', 
+      desc: 'Spot - professional services', 
+      category: 'Spot' 
+    },
+
   ];
+
   const CATEGORIES = ['Corporate', 'Documentaries', 'Fashion', 'Fitness', 'Food', 'Music', 'Shortfilm', 'Spot'];
 
   /* ---------------- HELPERS ---------------- */
@@ -75,22 +274,13 @@
     $$('video', scope).forEach(v => { try { v.pause(); } catch (e) {} });
   }
 
-  /* ---------------- (Kept for compatibility) MUTE PERSISTENCE helpers ----------------
-     Nota: per il comportamento richiesto (mute locale) NON useremo questi in maniera globale.
-     Li lascio nel file in caso volessi ripristinare futuro comportamento globale.
-  */
   const MUTE_KEY = 'site_mute_pref';
   function readMute() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
   function writeMute(v) { try { localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) {} }
 
-  /* ---------------- Instance registry (container -> VideoCarousel) ----------------
-     Serve al delegato click per trovare l'istanza corretta e togglare solo quella.
-  */
   const instanceMap = new WeakMap();
-
-  // references to main carousels if needed elsewhere
   let homeCarousel = null;
-  let galleryCarousel = null;
+  let galleryPlayer = null;
 
   /* ---------------- Menu (desktop inline / mobile dropdown) ---------------- */
   function initMenu(context = document) {
@@ -98,19 +288,16 @@
     const navList = context.querySelector('#navList');
     if (!navToggle || !navList) return;
 
-    // create the mobile dropdown (global element appended to body)
     let mobileDropdown = document.getElementById('mobileDropdown');
     if (!mobileDropdown) {
       mobileDropdown = create('div', { id: 'mobileDropdown', class: 'mobile-dropdown' }, '');
       document.body.appendChild(mobileDropdown);
     }
-    mobileDropdown.innerHTML = ''; // clear previous
+    mobileDropdown.innerHTML = '';
 
-    // populate mobileDropdown with clones but styled for mobile
     Array.from(navList.children).forEach(li => {
       const a = li.firstElementChild.cloneNode(true);
       a.classList.add('mobile-link');
-      // ensure links are block + white (CSS will style .mobile-dropdown a)
       a.addEventListener('click', () => {
         mobileDropdown.classList.remove('open');
         navToggle.setAttribute('aria-expanded', 'false');
@@ -118,7 +305,6 @@
       mobileDropdown.appendChild(a);
     });
 
-    // hamburger toggle
     navToggle.addEventListener('click', (e) => {
       e.stopPropagation();
       const isOpen = mobileDropdown.classList.toggle('open');
@@ -130,7 +316,6 @@
       }
     });
 
-    // click outside closes dropdown
     document.addEventListener('click', (e) => {
       if (!mobileDropdown.classList.contains('open')) return;
       if (!e.target.closest('#mobileDropdown') && !e.target.closest('#navToggle')) {
@@ -140,7 +325,7 @@
     });
   }
 
-  /* ---------------- Reusable VideoCarousel ---------------- */
+  /* ---------------- VideoCarousel (Home) ---------------- */
   class VideoCarousel {
     constructor(opts) {
       this.container = opts.container;
@@ -150,18 +335,15 @@
       this.titleEl = this.container.querySelector('.carousel-title');
       this.descEl = this.container.querySelector('.carousel-desc');
       this.linkEl = this.container.querySelector(opts.linkSelector);
-      this.muteBtn = opts.muteBtn || null; // button inside this carousel
+      this.muteBtn = opts.muteBtn || null;
       this.slides = opts.slides || [];
       this.idx = 0;
       this.autoplayTimer = null;
       this.savedTime = {};
-      // LOCAL mute: default false -> start with audio (browser autoplay policy may block)
       this.muted = false;
       this._saveInterval = null;
 
-      // register instance for delegation
       if (this.container) instanceMap.set(this.container, this);
-
       this.init();
     }
 
@@ -174,15 +356,15 @@
       if (this.nextBtn) this.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); this.go(this.idx + 1); this.resetAutoplay(); });
 
       if (this.linkEl) {
-        this.linkEl.addEventListener('click', () => {
+        this.linkEl.setAttribute('href', '#');
+        this.linkEl.addEventListener('click', (ev) => {
+          ev.preventDefault();
           const meta = this.slides[this.idx];
           if (meta) try { sessionStorage.setItem('selectedVideoId', meta.id); } catch (e) {}
         });
       }
 
-      // If there's a local mute button inside this carousel, set its initial visual state
       if (this.muteBtn) this.updateMuteButton();
-
       this._bindPointer();
 
       this.videoEl.addEventListener('playing', () => {
@@ -213,25 +395,15 @@
         this.muted = muted;
         const v = this.videoEl;
         if (!v) return;
-
-        // Forza la proprietà 'muted' e aggiorna il volume
         v.muted = !!muted;
         v.volume = muted ? 0 : 1;
-
-        // 🧠 Fix specifico per desktop:
-        // Forza un "nudge" all'audio per applicare il cambio in riproduzione
         if (!v.paused) {
           v.pause();
           const curTime = v.currentTime;
-          // riavvia dopo leggerissimo delay per ricaricare l’audio context
           setTimeout(() => {
-            try {
-              v.currentTime = curTime;
-              v.play().catch(() => {});
-            } catch (e) {}
+            try { v.currentTime = curTime; v.play().catch(()=>{}); } catch (e) {}
           }, 80);
         }
-
       } catch (e) {
         console.warn('[mute] applyMute error', e);
       }
@@ -272,8 +444,7 @@
         } catch (e) {}
         if (this.titleEl) this.titleEl.textContent = meta.title || '';
         if (this.descEl) this.descEl.textContent = meta.desc || '';
-        if (this.linkEl) this.linkEl.href = `video.html?id=${encodeURIComponent(meta.id)}`;
-        this.videoEl.play().catch(()=>{ /* autoplay may be blocked */ });
+        this.videoEl.play().catch(()=>{});
         this.videoEl.removeEventListener('loadedmetadata', onLoaded);
       };
       this.videoEl.addEventListener('loadedmetadata', onLoaded);
@@ -331,12 +502,333 @@
     }
   }
 
+  /* ---------------- GalleryPlayer (double video) with progress + click-to-play ---------------- */
+  class GalleryPlayer {
+    constructor(opts) {
+      this.container = opts.container;
+      this.layerA = this.container.querySelector('.gallery-video.layer-a');
+      this.layerB = this.container.querySelector('.gallery-video.layer-b');
+      this.titleEl = this.container.querySelector('#galleryTitle');
+      this.prevBtn = this.container.querySelector('#gPrevBtn');
+      this.nextBtn = this.container.querySelector('#gNextBtn');
+      this.muteBtn = opts.muteBtn || null;
+      this.progressBar = this.container.querySelector('.progress-bar');
+      this.progressBuffer = this.container.querySelector('.progress-buffer');
+      this.playOverlay = this.container.querySelector('.play-overlay');
+      this.slides = opts.slides || [];
+      this.currentIndex = 0;
+      this.front = 'A';
+      this.autoplayTimer = null;
+      this.isManual = false;
+      this._boundOnInteraction = this._onUserInteraction.bind(this);
+      this._rafId = null;
+
+      this._setupLayers();
+      this._wireControls();
+      if (this.muteBtn) this.updateMuteButton();
+
+      this._bindClickToToggle();
+
+      if (this.slides.length) this.playIndex(0, { autoplayStart: true });
+      this.resetAutoplay();
+      this._attachInteractionListeners();
+    }
+
+    _setupLayers() {
+      if (this.layerA && this.layerB) {
+        this.layerA.style.position = 'absolute';
+        this.layerB.style.position = 'absolute';
+        this.layerA.style.inset = '0';
+        this.layerB.style.inset = '0';
+        this.layerA.style.width = '100%';
+        this.layerB.style.width = '100%';
+        this.layerA.style.height = '100%';
+        this.layerB.style.height = '100%';
+        this.layerA.style.objectFit = 'cover';
+        this.layerB.style.objectFit = 'cover';
+        this.layerA.style.opacity = 1;
+        this.layerB.style.opacity = 0;
+        this.layerA.style.zIndex = 2;
+        this.layerB.style.zIndex = 1;
+        const gp = this.container.querySelector('.gallery-player');
+        if (gp) { gp.style.position = 'relative'; gp.style.overflow = 'hidden'; }
+      }
+    }
+
+    _wireControls() {
+      if (this.prevBtn) this.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); this._onUserInteraction(); this.prev(); });
+      if (this.nextBtn) this.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); this._onUserInteraction(); this.next(); });
+      if (this.muteBtn) {
+        this.muteBtn.addEventListener('click', (e) => { e.stopPropagation(); this.toggleMute(); });
+        this.updateMuteButton();
+      }
+    }
+
+    updateMuteButton() {
+      if (!this.muteBtn) return;
+      const muted = readMute();
+      this.muteBtn.classList.toggle('muted', !!muted);
+      this.muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      this.muteBtn.setAttribute('aria-label', muted ? 'Attiva audio' : 'Disattiva audio');
+      if (this.layerA) this.layerA.muted = !!muted;
+      if (this.layerB) this.layerB.muted = !!muted;
+    }
+
+    toggleMute() {
+      const newVal = !readMute();
+      writeMute(newVal);
+      this.updateMuteButton();
+    }
+
+    _attachInteractionListeners() {
+      this.container.addEventListener('pointerdown', this._boundOnInteraction, { passive: true });
+      document.addEventListener('keydown', this._boundOnInteraction);
+    }
+
+    _onUserInteraction() {
+      if (!this.isManual) {
+        this.isManual = true;
+        this.clearAutoplay();
+        log('[gallery] user interaction -> manual mode');
+      }
+    }
+
+    clearAutoplay() {
+      if (this.autoplayTimer) { clearInterval(this.autoplayTimer); this.autoplayTimer = null; }
+    }
+
+    resetAutoplay() {
+      this.clearAutoplay();
+      if (this.isManual) return;
+      this.autoplayTimer = setInterval(() => { this.next(); }, AUTOPLAY_INTERVAL_MS);
+    }
+
+    setSlides(slides) {
+      this.slides = slides || [];
+      this.currentIndex = 0;
+      this.isManual = false;
+      this.resetAutoplay();
+    }
+
+    prev() {
+      if (!this.slides.length) return;
+      const nextIndex = (this.currentIndex - 1 + this.slides.length) % this.slides.length;
+      this.playIndex(nextIndex);
+    }
+
+    next() {
+      if (!this.slides.length) return;
+      const nextIndex = (this.currentIndex + 1) % this.slides.length;
+      this.playIndex(nextIndex);
+    }
+
+    async playIndex(i, opts = {}) {
+      if (!this.slides.length) return;
+      i = (i + this.slides.length) % this.slides.length;
+      const meta = this.slides[i];
+      if (!meta) return;
+      if (opts.userTriggered) this._onUserInteraction();
+
+      const backLayer = (this.front === 'A') ? this.layerB : this.layerA;
+      const frontLayer = (this.front === 'A') ? this.layerA : this.layerB;
+
+      try { backLayer.pause(); } catch (e) {}
+      backLayer.removeAttribute('src');
+      backLayer.src = meta.src || '';
+      backLayer.load();
+
+      const muted = readMute();
+      backLayer.muted = !!muted;
+      frontLayer.muted = !!muted;
+
+      const onLoaded = () => {
+        backLayer.removeEventListener('loadedmetadata', onLoaded);
+        backLayer.currentTime = 0;
+        backLayer.play().catch(()=>{});
+        // crossfade
+        if (window.gsap) {
+          backLayer.style.zIndex = 3;
+          frontLayer.style.zIndex = 2;
+          gsap.fromTo(backLayer, { opacity: 0, scale: 1.02 }, { opacity: 1, scale: 1, duration: 0.6, ease: 'power2.out' });
+          gsap.to(frontLayer, { opacity: 0, scale: 0.98, duration: 0.6, ease: 'power2.out', onComplete: () => {
+            frontLayer.pause();
+            frontLayer.currentTime = 0;
+            this.front = (this.front === 'A') ? 'B' : 'A';
+            this._syncTitle(meta.title);
+            this._flashOverlay();
+            this._startProgressLoop();
+          }});
+        } else {
+          backLayer.style.opacity = 0;
+          backLayer.style.zIndex = 3;
+          frontLayer.style.zIndex = 2;
+          backLayer.style.transform = 'scale(1.02)';
+          frontLayer.style.transform = 'scale(1)';
+          const steps = 12;
+          let step = 0;
+          const t = setInterval(() => {
+            step++;
+            const p = step / steps;
+            backLayer.style.opacity = String(p);
+            frontLayer.style.opacity = String(1 - p);
+            backLayer.style.transform = `scale(${1.02 - (0.02 * p)})`;
+            frontLayer.style.transform = `scale(${1 - (0.02 * p)})`;
+            if (step >= steps) {
+              clearInterval(t);
+              frontLayer.pause();
+              frontLayer.currentTime = 0;
+              this.front = (this.front === 'A') ? 'B' : 'A';
+              this._syncTitle(meta.title);
+              this._flashOverlay();
+              this._startProgressLoop();
+            }
+          }, 60);
+        }
+      };
+      backLayer.addEventListener('loadedmetadata', onLoaded);
+
+      this.currentIndex = i;
+      this.resetAutoplay();
+      // pre-warm buffer update loop
+      this._startProgressLoop();
+    }
+
+    _syncTitle(t) {
+      if (this.titleEl) this.titleEl.textContent = t || '';
+    }
+
+    _flashOverlay() {
+      const overlay = this.container.querySelector('.gallery-overlay');
+      if (!overlay) return;
+      overlay.classList.add('force-visible');
+      setTimeout(() => overlay.classList.remove('force-visible'), SLIDE_CHANGE_OVERLAY_MS);
+    }
+
+    // -------- progress loop (RAF) + buffer detection --------
+    _getFrontLayer() {
+      return (this.front === 'A') ? this.layerA : this.layerB;
+    }
+
+    _startProgressLoop() {
+      if (this._rafId) return;
+      const loop = () => {
+        this._rafId = requestAnimationFrame(loop);
+        this._updateProgressAndBuffer();
+      };
+      this._rafId = requestAnimationFrame(loop);
+    }
+
+    _stopProgressLoop() {
+      if (this._rafId) {
+        cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+      }
+    }
+
+    _updateProgressAndBuffer() {
+      const layer = this._getFrontLayer();
+      const bar = this.progressBar;
+      const buf = this.progressBuffer;
+      if (!layer || !bar) return;
+      const dur = layer.duration || 0;
+      const cur = layer.currentTime || 0;
+      const pct = (dur > 0) ? Math.min(100, (cur / dur) * 100) : 0;
+      bar.style.width = pct + '%';
+      bar.setAttribute('aria-valuenow', String(Math.round(pct)));
+
+      // buffered: find last buffered range end
+      if (buf && layer.buffered && layer.buffered.length) {
+        try {
+          const ranges = layer.buffered;
+          const last = ranges.length - 1;
+          const end = ranges[last].end || 0;
+          const bufPct = (dur > 0) ? Math.min(100, (end / dur) * 100) : 0;
+          buf.style.width = bufPct + '%';
+        } catch (e) {
+          buf.style.width = '0%';
+        }
+      } else if (buf) {
+        buf.style.width = '0%';
+      }
+
+      // stop RAF if paused & user manually paused
+      if (layer.paused && this.isManual) {
+        this._stopProgressLoop();
+      }
+    }
+
+    // -------- click-to-play/pause + overlay animations --------
+    _bindClickToToggle() {
+      const playerArea = this.container.querySelector('.gallery-player') || this.container;
+      if (!playerArea) return;
+
+      playerArea.addEventListener('click', (ev) => {
+        if (ev.target.closest('.control-btn') || ev.target.closest('.mute-toggle')) return;
+        const front = this._getFrontLayer();
+        if (!front) return;
+
+        if (front.paused) {
+          front.play().catch(()=>{});
+          this._onUserInteraction(); // manual mode
+          this._startProgressLoop();
+          this._showPlayTransient(); // quick play effect
+        } else {
+          front.pause();
+          this._onUserInteraction();
+          this._stopProgressLoop();
+          this._showPausedOverlay(); // show pause icon
+        }
+      });
+    }
+
+    _showPlayTransient() {
+      if (!this.playOverlay) return;
+      // ensure play icon visible, pause hidden
+      this.playOverlay.classList.remove('paused');
+      // animate: show briefly with zoom + fade out
+      this.playOverlay.classList.remove('animate-out');
+      this.playOverlay.classList.add('animate-in', 'transient');
+      // if GSAP available use for smoother effect
+      if (window.gsap) {
+        gsap.fromTo(this.playOverlay.querySelector('.icon-play'), { scale: 0.9, opacity: 1 }, { scale: 1.3, opacity: 0, duration: 0.6, ease: 'power2.out' });
+        // cleanup after
+        setTimeout(() => {
+          this.playOverlay.classList.remove('animate-in', 'transient');
+        }, 620);
+      } else {
+        // fallback: use CSS classes + timeout
+        setTimeout(() => { this.playOverlay.classList.remove('animate-in', 'transient'); }, 620);
+      }
+    }
+
+    _showPausedOverlay() {
+      if (!this.playOverlay) return;
+      // show pause icon statically (no transient fade)
+      this.playOverlay.classList.remove('animate-in', 'animate-out', 'transient');
+      this.playOverlay.classList.add('paused');
+      // keep it visible until next play (JS will remove .paused when play occurs)
+    }
+
+    destroy() {
+      this.clearAutoplay();
+      this._stopProgressLoop();
+      try {
+        this.layerA.pause(); this.layerB.pause();
+      } catch (e) {}
+    }
+  }
+
+
+
   /* ---------------- Home init ---------------- */
   function initHome(context = document) {
     const section = context.querySelector('#carouselSection');
     if (!section) return;
-    const slides = FEATURED_IDS.map(id => VIDEOS.find(v => v.id === id)).filter(Boolean);
-    if (!slides.length) slides.push(...VIDEOS.slice(0, Math.min(2, VIDEOS.length)));
+
+    // Prefer HOME_CAROUSEL (sorgenti separate), fallback a FEATURED_IDS -> VIDEOS
+    let slides = Array.isArray(HOME_CAROUSEL) && HOME_CAROUSEL.length ? HOME_CAROUSEL.slice() : FEATURED_IDS.map(id => VIDEOS.find(v => v.id === id)).filter(Boolean);
+    if (!slides.length) slides.push(...(Array.isArray(VIDEOS) ? VIDEOS.slice(0, Math.min(2, VIDEOS.length)) : []));
+
     const muteBtn = context.querySelector('#muteToggle');
     homeCarousel = new VideoCarousel({
       container: section,
@@ -346,12 +838,11 @@
       slides,
       muteBtn
     });
-    // if there is a mute button element we also ensure it's wired visually (the delegate toggles the instance)
     if (muteBtn) homeCarousel.muteBtn = muteBtn;
     if (homeCarousel.muteBtn) homeCarousel.updateMuteButton();
   }
 
-  /* ---------------- Gallery init (single carousel filtered) ---------------- */
+  /* ---------------- Gallery init (uses GalleryPlayer) ---------------- */
   function initGallery(context = document) {
     const catList = context.querySelector('#categoryList');
     const galleryGrid = context.querySelector('#galleryGrid');
@@ -374,41 +865,35 @@
 
     const muteBtn = context.querySelector('#muteToggleGallery');
 
-    function renderCategory(category) {
-      const slides = VIDEOS.filter(v => v.category === category);
+    async function renderCategory(category) {
+      // safety: if VIDEOS is not an array, provide fallback empty
+      const slides = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
       if (!slides.length) {
-        section.querySelector('.carousel-video').removeAttribute('src');
-        section.querySelector('.carousel-video').load?.();
-        const titleEl = section.querySelector('.carousel-title');
-        const descEl = section.querySelector('.carousel-desc');
+        if (galleryPlayer) galleryPlayer.destroy();
+        const layerA = section.querySelector('.gallery-video.layer-a');
+        const layerB = section.querySelector('.gallery-video.layer-b');
+        if (layerA) { layerA.removeAttribute('src'); layerA.load?.(); layerA.style.opacity = 0; }
+        if (layerB) { layerB.removeAttribute('src'); layerB.load?.(); layerB.style.opacity = 0; }
+        const titleEl = section.querySelector('#galleryTitle');
         if (titleEl) titleEl.textContent = 'Nessun video';
-        if (descEl) descEl.textContent = '';
         galleryGrid.innerHTML = `<div style="padding:28px;color:var(--muted);text-align:center">Nessun video per la categoria "${category}"</div>`;
         return;
       }
 
-      if (galleryCarousel) {
-        galleryCarousel.saveState(galleryCarousel.idx || 0);
-        galleryCarousel.slides = slides;
-        galleryCarousel.setSlide(0);
-        galleryCarousel.resetAutoplay();
-        galleryCarousel.updateMuteButton();
+      if (galleryPlayer) {
+        galleryPlayer.setSlides(slides);
+        galleryPlayer.playIndex(0);
+        galleryPlayer.isManual = false;
+        galleryPlayer.resetAutoplay();
       } else {
-        galleryCarousel = new VideoCarousel({
+        galleryPlayer = new GalleryPlayer({
           container: section,
-          prevSelector: '#gPrevBtn',
-          nextSelector: '#gNextBtn',
-          linkSelector: '#gCarouselLink',
           slides,
           muteBtn
         });
-        // ensure the instance knows its mute button
-        if (muteBtn) galleryCarousel.muteBtn = muteBtn;
       }
 
-      // sync visuals (only local instances will be updated by their updateMuteButton)
-      if (galleryCarousel && galleryCarousel.muteBtn) galleryCarousel.updateMuteButton();
-
+      if (galleryPlayer && galleryPlayer.muteBtn) galleryPlayer.updateMuteButton();
       populateGrid(galleryGrid, category);
     }
 
@@ -417,48 +902,31 @@
 
   function populateGrid(container, category) {
     container.innerHTML = '';
-    const items = VIDEOS.filter(v => v.category === category);
-    items.forEach(v => {
-      const a = create('a', { class: 'grid-item', href: `video.html?id=${encodeURIComponent(v.id)}` });
-      a.innerHTML = `
+    const items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
+    items.forEach((v, idx) => {
+      const btn = create('button', { class: 'grid-item', type: 'button', dataset: { id: v.id } });
+      btn.innerHTML = `
         <video src="${v.src}" preload="metadata" playsinline muted></video>
         <div class="hover-overlay" aria-hidden="true"></div>
         <div class="preview-info"><strong>${v.title}</strong></div>
         <div class="preview-info"><small>${v.desc}</small></div>
       `;
-      const vid = a.querySelector('video');
+      const vid = btn.querySelector('video');
       let t = null;
-      a.addEventListener('mouseenter', () => {
-        t = setTimeout(() => { try { vid.play().catch(()=>{}); } catch(e){}; a.classList.add('hovering'); }, 60);
+      btn.addEventListener('mouseenter', () => {
+        t = setTimeout(() => { try { vid.play().catch(()=>{}); } catch(e){}; btn.classList.add('hovering'); }, 60);
       });
-      a.addEventListener('mouseleave', () => { if (t) clearTimeout(t); try { vid.pause(); vid.currentTime = 0; } catch(e){}; a.classList.remove('hovering'); });
-      a.addEventListener('click', () => { try { sessionStorage.setItem('selectedVideoId', v.id); } catch(e){}; });
-      container.appendChild(a);
-    });
-  }
+      btn.addEventListener('mouseleave', () => { if (t) clearTimeout(t); try { vid.pause(); vid.currentTime = 0; } catch(e){}; btn.classList.remove('hovering'); });
 
-  /* ---------------- Video page ---------------- */
-  function initVideoPage(context = document) {
-    const player = context.querySelector('#player');
-    if (!player) return;
-    const params = new URLSearchParams(window.location.search);
-    let id = params.get('id') || null;
-    if (!id) {
-      try { id = sessionStorage.getItem('selectedVideoId'); } catch (e) {}
-    }
-    let meta = VIDEOS.find(v => String(v.id) === String(id));
-    if (!meta) meta = VIDEOS[0];
-    try { sessionStorage.removeItem('selectedVideoId'); } catch (e) {}
-    pauseAll(context);
-    player.src = meta.src;
-    player.load();
-    // On the dedicated video page we'll keep player unmuted by default (user asked local behavior)
-    player.muted = false;
-    try { player.play().catch(()=>{}); } catch(e){}
-    const titleEl = context.querySelector('#videoTitle');
-    const descEl = context.querySelector('#videoDesc');
-    if (titleEl) titleEl.textContent = meta.title || '';
-    if (descEl) descEl.textContent = meta.descrizione || meta.desc || '';
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (galleryPlayer) {
+          galleryPlayer.playIndex(idx, { userTriggered: true });
+        }
+      });
+
+      container.appendChild(btn);
+    });
   }
 
   /* ---------------- ABOUT ---------------- */
@@ -478,17 +946,13 @@
     }
   }
 
-  /* ---------------- Delegated click: mute-toggle (LOCAL instance) ----------------
-     Questo listener intercetta click su qualunque .mute-toggle e applica toggle
-     solo all'istanza del carosello più vicino (se presente). Funziona anche con Barba.
-  */
+  /* ---------------- Delegated click: mute-toggle ---------------- */
   document.addEventListener('click', (e) => {
     const btn = e.target.closest && e.target.closest('.mute-toggle');
     if (!btn) return;
-    // cerca il container .carousel più vicino
+
     const carouselContainer = btn.closest('.carousel') || btn.closest('.carousel--gallery') || btn.closest('.carousel--full') || btn.closest('[data-carousel-container]');
     if (!carouselContainer) {
-      // fallback: se non è dentro un .carousel, applica solo al video vicino (closest video)
       const vid = btn.closest('section') ? btn.closest('section').querySelector('video') : document.querySelector('video');
       if (vid) {
         vid.muted = !vid.muted;
@@ -498,9 +962,15 @@
       return;
     }
 
+    if (galleryPlayer && galleryPlayer.container === carouselContainer) {
+      galleryPlayer.toggleMute();
+      carouselContainer.querySelectorAll('.mute-toggle').forEach(b => b.classList.toggle('muted', !!readMute()));
+      log('[mute] toggled gallery player muted=', readMute());
+      return;
+    }
+
     const instance = instanceMap.get(carouselContainer);
     if (!instance) {
-      // fallback: trova il video e toggle
       const v = carouselContainer.querySelector('video');
       if (v) {
         v.muted = !v.muted;
@@ -510,9 +980,7 @@
       return;
     }
 
-    // toggle only this instance
     instance.toggleMute();
-    // update the clicked button visual (and any other mute toggles inside same container)
     carouselContainer.querySelectorAll('.mute-toggle').forEach(b => b.classList.toggle('muted', !!instance.muted));
     log('[mute] toggled instance for container', carouselContainer, 'now muted=', instance.muted);
   });
@@ -522,7 +990,6 @@
     initMenu(context);
     if (context.querySelector && context.querySelector('#carouselSection')) initHome(context);
     if (context.querySelector && context.querySelector('#galleryCarouselSection')) initGallery(context);
-    if (context.querySelector && context.querySelector('#player')) initVideoPage(context);
     if (context.querySelector && context.querySelector('.facts')) initAbout(context);
   }
 
@@ -569,5 +1036,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 
-  log('main.js ready — mute is LOCAL per-carousel (per-instance) — delegate active');
+  log('main.js ready — patched (VIDEOS safe-guarded).');
 })();

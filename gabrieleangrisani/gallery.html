@@ -1,4 +1,4 @@
-<!-- gallery.html -->
+<!-- gallery.html (modificata) -->
 <!doctype html>
 <html lang="it">
 <head>
@@ -37,33 +37,44 @@
           <ul id="categoryList" class="category-list"></ul>
         </nav>
 
-        <!-- unico carosello filtrabile -->
-        <section class="carousel carousel--gallery" id="galleryCarouselSection" aria-roledescription="carousel">
-          <video class="carousel-video" playsinline></video>
+        <!-- gallery player: doppio video per crossfade -->
+        <section class="carousel carousel--gallery" id="galleryCarouselSection" aria-roledescription="gallery player">
+          <div class="gallery-player" aria-hidden="false" role="region" aria-label="Player galleria">
+            <video class="gallery-video layer-a" playsinline></video>
+            <video class="gallery-video layer-b" playsinline></video>
 
-          <button id="muteToggleGallery" class="mute-toggle" aria-pressed="false" aria-label="Disattiva audio">
-            <svg viewBox="0 0 24 24" class="icon-speaker" width="18" height="18" aria-hidden="true">
-              <path class="sp" d="M5 9v6h4l5 4V5L9 9H5z" fill="currentColor"></path>
-              <path class="waves" d="M16.5 8.5a3.5 3.5 0 010 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
-              <path class="cross" d="M19 8l-2 2M19 10l-2-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0"></path>
-            </svg>
-          </button>
+            <!-- play/pause overlay (centrato) -->
+            <div class="play-overlay" aria-hidden="true" role="button" tabindex="-1">
+              <!-- SVG icon (uses CSS classes to switch play/pause via .paused class) -->
+              <svg class="icon-play" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+                <path d="M16 12v40l36-20z" fill="currentColor"></path>
+              </svg>
+              <svg class="icon-pause" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true" style="display:none">
+                <path d="M18 12h8v40h-8zM38 12h8v40h-8z" fill="currentColor"></path>
+              </svg>
+            </div>
 
-          <div class="carousel-overlay" aria-hidden="false">
-            <div class="carousel-bottom" role="group" aria-label="Controlli carosello">
+            <!-- progress bar (TikTok style) with buffer indicator -->
+            <div class="progress-wrap" aria-hidden="true">
+              <div class="progress-buffer"></div>
+              <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            </div>
+          </div>
+
+          <button id="muteToggleGallery" class="mute-toggle" aria-pressed="false" aria-label="Disattiva audio"> ... </button>
+
+          <div class="carousel-overlay gallery-overlay" aria-hidden="false">
+            <div class="carousel-bottom" role="group" aria-label="Controlli gallery">
               <button id="gPrevBtn" class="control-btn" aria-label="Video precedente">⟵</button>
-
               <div class="carousel-text" tabindex="0">
-                <a href="#" id="gCarouselLink" aria-label="Apri video">
-                  <h1 class="carousel-title"></h1>
-                  <p class="carousel-desc"></p>
-                </a>
+                <span class="carousel-title" id="galleryTitle" aria-live="polite"></span>
               </div>
-
               <button id="gNextBtn" class="control-btn" aria-label="Video successivo">⟶</button>
             </div>
           </div>
         </section>
+
+
 
         <div class="gallery-grid" id="galleryGrid" aria-live="polite"></div>
       </main>
@@ -71,7 +82,3 @@
   </div>
 </body>
 </html>
-
-
-
-
