@@ -6,12 +6,16 @@
   --card: #0f0f0f;
   --accent: #db4338; /* colore accent globale */
   --accent-rgb: 219,67,56;
-  --cursor-clapper: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='28'%20height='28'%20viewBox='0%200%2028%2028'%3E%3Crect%20x='3'%20y='9'%20width='22'%20height='12'%20rx='2'%20fill='%23db4338'/%3E%3Cpath%20d='M3%209%20L11%204%20L25%2010%20L17%2015%20Z'%20fill='%23000000'%20opacity='0.85'/%3E%3Crect%20x='4'%20y='11'%20width='6'%20height='2'%20fill='%23fff'%20opacity='0.07'/%3E%3Crect%20x='18'%20y='11'%20width='4'%20height='2'%20fill='%23fff'%20opacity='0.07'/%3E%3C/svg%3E") 12 12, pointer;
+  --cursor-rec: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><defs><filter id='g' x='-50%' y='-50%' width='200%' height='200%'><feGaussianBlur in='SourceGraphic' stdDeviation='2' result='blur'/><feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge></filter></defs><circle cx='14' cy='14' r='10' fill='%23db4338' filter='url(%23g)'/></svg>") 14 14, pointer;
+
+
+
+
 }
 
 /* cursor on interactive elements */
 a, button, .control-btn, .nav-list li a, .grid-item, .control-btn, .category-list li button,  .carousel, .carousel * {
-  cursor: var(--cursor-clapper);
+  cursor: var(--cursor-rec);
 }
 input, textarea, select { cursor: text; }
 
@@ -55,6 +59,10 @@ body.no-scroll{overflow:hidden}
   height:80px;
   /* gap:12px; */
   /* background: rgb(0, 0, 0); */
+}
+
+.brand a:focus{
+  outline: none;
 }
 
 .logo {
