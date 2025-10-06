@@ -558,6 +558,12 @@
           this.playOverlay.style.opacity = '0';
           this.playOverlay.style.display = 'none';
         }
+        if (this.topOverlay) {
+          // hide top overlay until needed
+          this.topOverlay.classList.remove('paused','buffering','animate-in','force-visible');
+          this.topOverlay.style.display = 'none';
+          this.topOverlay.style.opacity = '0';
+        }
       } catch (e) { /* silent fail for older browsers */ }
 
 
@@ -589,16 +595,9 @@
         this.updateMuteButton(); // will set .muted on btn if needed
         this.topMuteBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          // If instanceMap available, toggle local instance mute
-          try {
-            // use instance's toggleMute if present
-            this.toggleMute();
-          } catch (err) {
-            // fallback: toggle HTML5 video directly
-            const v = this._getFrontLayer();
-            if (v) { v.muted = !v.muted; this.topMuteBtn.classList.toggle('muted', !!v.muted); }
-          }
-          // update visual quickly
+          // toggle instance mute
+          this.toggleMute();
+          // update visual quickly (readMute persists)
           this.topMuteBtn.classList.toggle('muted', !!readMute());
         });
       }
@@ -648,6 +647,7 @@
       if (this.prevBtn) this.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); this._onUserInteraction(); this.prev(); });
       if (this.nextBtn) this.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); this._onUserInteraction(); this.next(); });
       if (this.muteBtn) {
+        // legacy / fallback mute button (if any) - keep for safety
         this.muteBtn.addEventListener('click', (e) => { e.stopPropagation(); this.toggleMute(); });
         this.updateMuteButton();
       }
@@ -657,11 +657,17 @@
       // show spinner only if affected layer is the front or is loading into front
       const front = this._getFrontLayer();
       if (!front) return;
-      // show buffering overlay
+      // show buffering overlay (bottom)
       if (this.playOverlay) {
         this.playOverlay.classList.add('buffering');
-        // hide play/pause icons while buffering
         this.playOverlay.classList.remove('paused');
+      }
+      // also make top overlay visible in buffering (match bottom)
+      if (this.topOverlay) {
+        this.topOverlay.classList.add('buffering');
+        this.topOverlay.classList.remove('paused');
+        this.topOverlay.style.display = 'flex';
+        this.topOverlay.style.opacity = '1';
       }
     }
 
@@ -677,14 +683,35 @@
           this.playOverlay.classList.remove('paused');
         }
       }
+      // sync top overlay states
+      if (this.topOverlay) {
+        this.topOverlay.classList.remove('buffering');
+        if (!this._getFrontLayer() || this._getFrontLayer().paused) {
+          this.topOverlay.classList.add('paused');
+          this.topOverlay.style.display = 'flex';
+          this.topOverlay.style.opacity = '1';
+        } else {
+          this.topOverlay.classList.remove('paused');
+          // hide if nothing else requires it
+          if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
+            this.topOverlay.style.opacity = '0';
+            setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 260);
+          }
+        }
+      }
     }
 
     updateMuteButton() {
-      if (!this.muteBtn) return;
+      // update both top mute and legacy muteBtn
       const muted = readMute();
-      this.muteBtn.classList.toggle('muted', !!muted);
-      this.muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
-      this.muteBtn.setAttribute('aria-label', muted ? 'Attiva audio' : 'Disattiva audio');
+      if (this.muteBtn) {
+        this.muteBtn.classList.toggle('muted', !!muted);
+        this.muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      }
+      if (this.topMuteBtn) {
+        this.topMuteBtn.classList.toggle('muted', !!muted);
+        this.topMuteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      }
       if (this.layerA) this.layerA.muted = !!muted;
       if (this.layerB) this.layerB.muted = !!muted;
     }
@@ -879,7 +906,7 @@
 
       playerArea.addEventListener('click', (ev) => {
         // IGNORA click sulla progress bar o sui controlli
-        if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn') || ev.target.closest('.mute-toggle')) return;
+        if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn')) return;
         const front = this._getFrontLayer();
         if (!front) return;
 
@@ -974,6 +1001,13 @@
       const ip = this.playOverlay.querySelector('.icon-play');
       if (pa) { pa.style.display = 'block'; pa.style.opacity = '1'; pa.style.transform = 'translate(-50%,-50%) scale(1)'; }
       if (ip) { ip.style.opacity = '0'; ip.style.display = 'block'; ip.style.transform = 'translate(-50%,-50%) scale(0.9)'; }
+
+      // ensure top overlay also shows paused state
+      if (this.topOverlay) {
+        this.topOverlay.classList.add('paused');
+        this.topOverlay.style.display = 'flex';
+        this.topOverlay.style.opacity = '1';
+      }
     }
 
     // Show play transient — if paused present, morph pause -> play -> hide
@@ -994,8 +1028,26 @@
           pa.style.display = 'none';
         } catch (e) {}
       }
-      // rimuovi classe paused subito
+      // rimuovi classe paused subito sul bottom overlay
       this.playOverlay.classList.remove('paused');
+
+      // also remove paused/buffering from top overlay so it can hide
+      if (this.topOverlay) {
+        this.topOverlay.classList.remove('paused');
+        this.topOverlay.classList.remove('buffering');
+        // animate-in for top overlay briefly (keeps consistent UX)
+        this.topOverlay.classList.add('animate-in');
+        this.topOverlay.style.display = 'flex';
+        this.topOverlay.style.opacity = '1';
+        setTimeout(()=> {
+          try { this.topOverlay.classList.remove('animate-in'); } catch(e){}
+          // hide top overlay if nothing else
+          if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
+            this.topOverlay.style.opacity = '0';
+            setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
+          }
+        }, PLAY_TRANSIENT_MS + 40);
+      }
 
       // 2) hide spinner (if any) to make play animation visible
       if (spinner) {
@@ -1062,12 +1114,6 @@
     }
   }
 
-
-
-
-
-
-
   /* ---------------- Home init ---------------- */
   function initHome(context = document) {
     const section = context.querySelector('#carouselSection');
@@ -1111,7 +1157,8 @@
       catList.appendChild(li);
     });
 
-    const muteBtn = context.querySelector('#muteToggleGallery');
+    // use the new top-overlay mute button if present (fallback null)
+    const muteBtn = section.querySelector('.top-overlay .mute-btn');
 
     async function renderCategory(category) {
       // safety: if VIDEOS is not an array, provide fallback empty
@@ -1193,45 +1240,6 @@
       bioCard.addEventListener('mouseleave', () => { profileImg.style.transform = ''; });
     }
   }
-
-  /* ---------------- Delegated click: mute-toggle ---------------- */
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest && e.target.closest('.mute-toggle');
-    if (!btn) return;
-
-    const carouselContainer = btn.closest('.carousel') || btn.closest('.carousel--gallery') || btn.closest('.carousel--full') || btn.closest('[data-carousel-container]');
-    if (!carouselContainer) {
-      const vid = btn.closest('section') ? btn.closest('section').querySelector('video') : document.querySelector('video');
-      if (vid) {
-        vid.muted = !vid.muted;
-        btn.classList.toggle('muted', !!vid.muted);
-      }
-      log('[mute] fallback toggled video (no carousel container)');
-      return;
-    }
-
-    if (galleryPlayer && galleryPlayer.container === carouselContainer) {
-      galleryPlayer.toggleMute();
-      carouselContainer.querySelectorAll('.mute-toggle').forEach(b => b.classList.toggle('muted', !!readMute()));
-      log('[mute] toggled gallery player muted=', readMute());
-      return;
-    }
-
-    const instance = instanceMap.get(carouselContainer);
-    if (!instance) {
-      const v = carouselContainer.querySelector('video');
-      if (v) {
-        v.muted = !v.muted;
-        btn.classList.toggle('muted', !!v.muted);
-      }
-      log('[mute] no instance found for container, toggled video directly');
-      return;
-    }
-
-    instance.toggleMute();
-    carouselContainer.querySelectorAll('.mute-toggle').forEach(b => b.classList.toggle('muted', !!instance.muted));
-    log('[mute] toggled instance for container', carouselContainer, 'now muted=', instance.muted);
-  });
 
   /* ---------------- RUN / BARBA ---------------- */
   function runInits(context = document) {

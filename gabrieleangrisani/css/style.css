@@ -168,18 +168,44 @@ main{padding-top:80px}
 .gallery-player .layer-a { z-index:2; opacity:1; pointer-events:auto; transform: scale(1); }
 .gallery-player .layer-b { z-index:1; opacity:0; pointer-events:none; transform: scale(1); }
 
-/* ---------- TOP OVERLAY (mute + fullscreen) ---------- */
+/* ====================== TOP OVERLAY: stacked + show/hide like bottom overlay ====================== */
+
+/* base: hidden by default (opacity for nice transitions) */
 .top-overlay {
   position: absolute;
   top: 12px;
   right: 12px;
   display: flex;
+  flex-direction: column;    /* stacked vertically (FS above, MUTE below) */
   gap: 10px;
   align-items: center;
   z-index: 10010;
-  pointer-events: none; /* wrapper not interactive; buttons are */
+  pointer-events: none;      /* wrapper not interactive; buttons are interactive */
+  opacity: 0;                /* hidden by default */
+  transform: translateY(-6px);
   transition: opacity .22s ease, transform .22s ease;
+  will-change: opacity, transform;
 }
+
+/* visible states (same idea as .play-overlay / .carousel-overlay) */
+.carousel:hover .top-overlay,
+.top-overlay.force-visible,
+.top-overlay.animate-in,
+.top-overlay.paused,
+.top-overlay.buffering {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: none; /* wrapper still non-interactive; buttons receive events */
+}
+
+/* animate-out helper */
+.top-overlay.animate-out {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
+/* buttons inside top overlay */
 .top-overlay .top-btn {
   pointer-events: auto;
   background: rgba(0,0,0,0.35);
@@ -191,7 +217,6 @@ main{padding-top:80px}
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  cursor: pointer;
   transition: transform .18s ease, box-shadow .22s ease, background .18s;
 }
 .top-overlay .top-btn:hover,
@@ -202,20 +227,22 @@ main{padding-top:80px}
   outline: none;
 }
 
-/* mute button visual states */
+/* muted state visual */
 .top-overlay .top-btn.muted { background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.08)); }
 .top-overlay .top-btn .icon-speaker .cross { opacity: 0; transition: opacity .18s; }
 .top-overlay .top-btn.muted .icon-speaker .waves { opacity: 0; }
 .top-overlay .top-btn.muted .icon-speaker .cross { opacity: 1; }
 
-/* fullscreen icon swapped when active */
+/* fullscreen icon toggle */
 .top-overlay .top-btn.fs-btn .icon-fs .enter { display: block; }
 .top-overlay .top-btn.fs-btn.is-full .icon-fs .enter { display: none; }
 .top-overlay .top-btn.fs-btn.is-full .icon-fs .exit { display: block; }
 
-/* ensure top overlay visible when overlay states are active (e.g. hover player) */
-.carousel:hover .top-overlay,
-.carousel .top-overlay.force-visible { opacity: 1; pointer-events: auto; }
+/* small responsive tweak to ensure top overlay doesn't obstruct on very small screens */
+@media (max-width:480px) {
+  .top-overlay { top: 8px; right: 8px; gap: 8px; }
+  .top-overlay .top-btn { width: 40px; height: 40px; }
+}
 
 /* ------------ bottom overlay: play/pause + spinner ------------ */
 /*  progress & buffer bar (with hover bloom)  */
