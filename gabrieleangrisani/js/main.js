@@ -1,27 +1,22 @@
-// js/main.js (PATCH - robusto contro "VIDEOS is not defined")
+// js/main.js (UPDATED: consolidated mute, mouse-idle overlays, gallery uses only topMuteBtn)
 (() => {
   /* ---------------- CONFIG / TIMINGS (modifica qui) ---------------- */
   // Intervalli separati per autoplay
-  const HOME_AUTOPLAY_INTERVAL_MS = 4000;     // autoplay carosello home
-  const GALLERY_AUTOPLAY_INTERVAL_MS = 10000;  // autoplay gallery player
+  const HOME_AUTOPLAY_INTERVAL_MS = 5000;     // autoplay carosello home
+  const GALLERY_AUTOPLAY_INTERVAL_MS = 15000;  // autoplay gallery player
 
   // overlay / animazioni
-  const SLIDE_CHANGE_OVERLAY_MS = 1000; // overlay visibile al cambio slide
-  const PLAY_TRANSIENT_MS = 620;        // durata effetto play transient (ms)
+  const SLIDE_CHANGE_OVERLAY_MS = 1500; // overlay visibile al cambio slide
+  const PLAY_TRANSIENT_MS = 500;        // durata effetto play transient (ms)
 
+  // Idle mouse timeout for overlays (ms)
+  const MOUSE_IDLE_MS = 2000; // 2s
 
   // HOME_CAROUSEL: sorgenti dedicate al carosello della home (ottimizzate)
-  // Modifica questi src con i preview / teaser reali (piccoli/leggeri).
-  const HOME_CAROUSEL = (typeof window !== 'undefined' && window.HOME_CAROUSEL) ? window.HOME_CAROUSEL : [
-    // { id: 'home_preview_1', src: 'media/carousel/preview1.mp4', title: 'Preview 1' },
-    // { id: 'home_preview_2', src: 'media/carousel/preview2.mp4', title: 'Preview 2' },
-    // { id: 'home_preview_3', src: 'media/carousel/preview3.mp4', title: 'Preview 3' }
-  ];
+  const HOME_CAROUSEL = (typeof window !== 'undefined' && window.HOME_CAROUSEL) ? window.HOME_CAROUSEL : [];
 
-  // FEATURED_IDS per fallback (se vuoi mantenere la selezione per la home)
   const FEATURED_IDS = ['cm_festafinecampagna25', 'alici_di_menaica_teaser', 'partenope_fashion_film', 'cast_ride_or_die', 'evan_primo_marzo', 'niven_alpaca_freestyle', 'sevdaliza_human', 'sinestesie', 'waldeinsamkeit', 'studio_notarile_dausilio'];
 
-  // VIDEOS: la galleria userà SOLO questo array. Se esiste window.VIDEOS (caricato altrove) lo rispettiamo.
   const VIDEOS = (typeof window !== 'undefined' && window.VIDEOS) ? window.VIDEOS : [
     // Corporate
     { 
@@ -481,7 +476,6 @@
       this.autoplayTimer = setInterval(() => this.go(this.idx + 1), HOME_AUTOPLAY_INTERVAL_MS);
     }
 
-
     _bindPointer() {
       let startX = 0, deltaX = 0, isSwiping = false;
       const TH = 60;
@@ -518,7 +512,7 @@
       this.titleEl = this.container.querySelector('#galleryTitle');
       this.prevBtn = this.container.querySelector('#gPrevBtn');
       this.nextBtn = this.container.querySelector('#gNextBtn');
-      this.muteBtn = opts.muteBtn || null;
+      // legacy muteBtn intentionally ignored for gallery (we use topMuteBtn)
       this.progressBar = this.container.querySelector('.progress-bar');
       this.progressBuffer = this.container.querySelector('.progress-buffer');
       this.progressWrap = this.container.querySelector('.progress-wrap');
@@ -526,6 +520,7 @@
       this.topOverlay = this.container.querySelector('.top-overlay');
       this.topMuteBtn = this.container.querySelector('.top-overlay .mute-btn');
       this.topFsBtn = this.container.querySelector('.top-overlay .fs-btn');
+
       this._wireTopControls();
       this.slides = opts.slides || [];
       this.currentIndex = 0;
@@ -539,12 +534,11 @@
 
       this._setupLayers();
       this._wireControls();
-      if (this.muteBtn) this.updateMuteButton();
 
       this._bindClickToToggle();
       this._bindProgressInteractions();
 
-      // Ensure no pause icon visible on init (only show after user interaction)
+      // Ensure overlays initial state
       try {
         if (this.playOverlay) {
           this.playOverlay.classList.remove('paused', 'buffering', 'animate-in');
@@ -554,18 +548,32 @@
           if (pa) { pa.style.display = 'none'; pa.style.opacity = '0'; }
           if (ip) { ip.style.opacity = '0'; ip.style.display = 'none'; }
           if (sp) { sp.style.display = 'none'; sp.style.opacity = '0'; }
-          // hide overlay visually until an event requests it
           this.playOverlay.style.opacity = '0';
           this.playOverlay.style.display = 'none';
         }
         if (this.topOverlay) {
-          // hide top overlay until needed
           this.topOverlay.classList.remove('paused','buffering','animate-in','force-visible');
           this.topOverlay.style.display = 'none';
           this.topOverlay.style.opacity = '0';
         }
-      } catch (e) { /* silent fail for older browsers */ }
+      } catch (e) {}
 
+      // mouse idle / overlay show-hide
+      this._idleTimer = null;
+      this._onMouseMoveBound = this._onMouseMove.bind(this);
+      const gpArea = this.container.querySelector('.gallery-player') || this.container;
+      if (gpArea) {
+        gpArea.addEventListener('pointermove', this._onMouseMoveBound, { passive: true });
+        gpArea.addEventListener('pointerenter', this._onMouseMoveBound, { passive: true });
+        gpArea.addEventListener('pointerleave', () => {
+          if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
+          this._hideOverlays();
+        });
+      }
+      // show overlays briefly at init
+      this._showOverlays();
+      if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
+      this._idleTimer = setTimeout(()=> { this._hideOverlays(); this._idleTimer = null; }, MOUSE_IDLE_MS);
 
       if (this.slides.length) this.playIndex(0, { autoplayStart: true });
       this.resetAutoplay();
@@ -576,7 +584,6 @@
       if (this.layerA && this.layerB) {
         const gp = this.container.querySelector('.gallery-player');
         if (gp) { gp.style.position = 'relative'; gp.style.overflow = 'hidden'; }
-        // wire basic buffering listeners for both layers (we will route events to front)
         [this.layerA, this.layerB].forEach(layer => {
           if (!layer) return;
           layer.addEventListener('waiting', () => this._onBuffering(layer));
@@ -589,16 +596,15 @@
     }
 
     _wireTopControls() {
-      // ensure buttons exist and wire events
       if (this.topMuteBtn) {
         // reflect initial state
-        this.updateMuteButton(); // will set .muted on btn if needed
+        this.updateMuteButton();
         this.topMuteBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          // toggle instance mute
-          this.toggleMute();
-          // update visual quickly (readMute persists)
-          this.topMuteBtn.classList.toggle('muted', !!readMute());
+          e.preventDefault();
+          const newVal = !readMute();
+          writeMute(newVal);
+          this.updateMuteButton();
         });
       }
 
@@ -609,7 +615,6 @@
         });
       }
 
-      // Listen for fullscreen changes so we can update icon even when user uses ESC
       document.addEventListener('fullscreenchange', () => this.updateFullscreenButton());
       document.addEventListener('webkitfullscreenchange', () => this.updateFullscreenButton());
       document.addEventListener('mozfullscreenchange', () => this.updateFullscreenButton());
@@ -617,9 +622,8 @@
     }
 
     toggleFullscreen() {
-      const el = this.container; // fullscreen the whole container (change if prefer .gallery-player)
+      const el = this.container;
       if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-        // request fullscreen
         if (el.requestFullscreen) el.requestFullscreen().catch(()=>{});
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
         else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
@@ -630,7 +634,6 @@
         else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
         else if (document.msExitFullscreen) document.msExitFullscreen();
       }
-      // update icon after small delay (browser takes a little to enter FS)
       setTimeout(()=> this.updateFullscreenButton(), 250);
     }
 
@@ -642,72 +645,42 @@
       this.topFsBtn.setAttribute('aria-label', isFull ? 'Esci schermo intero' : 'Attiva schermo intero');
     }
 
-
     _wireControls() {
       if (this.prevBtn) this.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); this._onUserInteraction(); this.prev(); });
       if (this.nextBtn) this.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); this._onUserInteraction(); this.next(); });
-      if (this.muteBtn) {
-        // legacy / fallback mute button (if any) - keep for safety
-        this.muteBtn.addEventListener('click', (e) => { e.stopPropagation(); this.toggleMute(); });
-        this.updateMuteButton();
-      }
     }
 
     _onBuffering(layer) {
-      // show spinner only if affected layer is the front or is loading into front
       const front = this._getFrontLayer();
       if (!front) return;
-      // show buffering overlay (bottom)
       if (this.playOverlay) {
         this.playOverlay.classList.add('buffering');
         this.playOverlay.classList.remove('paused');
+        this.playOverlay.style.display = 'flex';
+        this.playOverlay.style.opacity = '1';
       }
-      // also make top overlay visible in buffering (match bottom)
-      if (this.topOverlay) {
-        this.topOverlay.classList.add('buffering');
-        this.topOverlay.classList.remove('paused');
-        this.topOverlay.style.display = 'flex';
-        this.topOverlay.style.opacity = '1';
-      }
+      // top overlay remains mouse-controlled
     }
 
     _onPlaying(layer) {
-      // hide spinner
       if (this.playOverlay) {
         this.playOverlay.classList.remove('buffering');
-        // ensure play/pause state remains correct: if paused state set, show pause icon, else hide icons
         if (!this._getFrontLayer() || this._getFrontLayer().paused) {
-          // show paused if paused
           this.playOverlay.classList.add('paused');
+          this.playOverlay.style.display = 'flex';
+          this.playOverlay.style.opacity = '1';
         } else {
           this.playOverlay.classList.remove('paused');
-        }
-      }
-      // sync top overlay states
-      if (this.topOverlay) {
-        this.topOverlay.classList.remove('buffering');
-        if (!this._getFrontLayer() || this._getFrontLayer().paused) {
-          this.topOverlay.classList.add('paused');
-          this.topOverlay.style.display = 'flex';
-          this.topOverlay.style.opacity = '1';
-        } else {
-          this.topOverlay.classList.remove('paused');
-          // hide if nothing else requires it
           if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
-            this.topOverlay.style.opacity = '0';
-            setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 260);
+            this.playOverlay.style.opacity = '0';
+            setTimeout(()=> { try { this.playOverlay.style.display = 'none'; } catch(e){} }, 220);
           }
         }
       }
     }
 
     updateMuteButton() {
-      // update both top mute and legacy muteBtn
       const muted = readMute();
-      if (this.muteBtn) {
-        this.muteBtn.classList.toggle('muted', !!muted);
-        this.muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
-      }
       if (this.topMuteBtn) {
         this.topMuteBtn.classList.toggle('muted', !!muted);
         this.topMuteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
@@ -787,7 +760,6 @@
         backLayer.removeEventListener('loadedmetadata', onLoaded);
         backLayer.currentTime = 0;
         backLayer.play().catch(()=>{});
-        // crossfade + zoom
         if (window.gsap) {
           backLayer.style.zIndex = 3;
           frontLayer.style.zIndex = 2;
@@ -845,7 +817,6 @@
       setTimeout(() => overlay.classList.remove('force-visible'), SLIDE_CHANGE_OVERLAY_MS);
     }
 
-    // -------- progress loop (RAF) + buffer detection --------
     _getFrontLayer() {
       return (this.front === 'A') ? this.layerA : this.layerB;
     }
@@ -879,7 +850,6 @@
 
       if (buf && layer.buffered && layer.buffered.length) {
         try {
-          // choose last buffered range that starts before currentTime or last range end
           let end = 0;
           for (let i=0;i<layer.buffered.length;i++){
             try { if (layer.buffered.start(i) <= cur) end = layer.buffered.end(i); }
@@ -899,20 +869,18 @@
       }
     }
 
-    // -------- click-to-play/pause (ignora progress-wrap) --------
     _bindClickToToggle() {
       const playerArea = this.container.querySelector('.gallery-player') || this.container;
       if (!playerArea) return;
 
       playerArea.addEventListener('click', (ev) => {
-        // IGNORA click sulla progress bar o sui controlli
         if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn')) return;
         const front = this._getFrontLayer();
         if (!front) return;
 
         if (front.paused) {
           front.play().catch(()=>{});
-          this._onUserInteraction(); // manual mode
+          this._onUserInteraction();
           this._startProgressLoop();
           this._showPlayTransient();
         } else {
@@ -924,7 +892,6 @@
       });
     }
 
-    // -------- progress interactions (seek click/drag) --------
     _bindProgressInteractions() {
       const wrap = this.progressWrap;
       if (!wrap) return;
@@ -947,12 +914,12 @@
 
       wrap.addEventListener('pointerdown', (ev) => {
         ev.preventDefault();
-        ev.stopPropagation(); // important: don't bubble to player click
+        ev.stopPropagation();
         dragging = true;
         pointerId = ev.pointerId;
         wrap.setPointerCapture?.(pointerId);
         wrap.classList.add('dragging');
-        this._onUserInteraction(); // set manual mode & stop autoplay
+        this._onUserInteraction();
         this.clearAutoplay();
         this._stopProgressLoop();
         updateSeekFromEvent(ev);
@@ -978,31 +945,24 @@
       wrap.addEventListener('lostpointercapture', (ev) => { stopDrag(ev); });
     }
 
-    // -------- overlay animations for play/pause & spinner --------
     _showPausedOverlay() {
       if (!this.playOverlay) return;
-      // cancel any play transient timeouts
       if (this._pauseTimeoutId) { clearTimeout(this._pauseTimeoutId); this._pauseTimeoutId = null; }
 
-      // ensure spinner hidden
       this.playOverlay.classList.remove('buffering');
       const spinner = this.playOverlay.querySelector('.buffer-spinner');
       if (spinner) { spinner.style.opacity = '0'; }
 
-      // mark paused class (JS consumer will remove it when play)
       this.playOverlay.classList.add('paused');
 
-      // inline style fallback to ensure visibility
       this.playOverlay.style.display = 'flex';
       this.playOverlay.style.opacity = '1';
 
-      // ensure pause icon visible (inline fallback)
       const pa = this.playOverlay.querySelector('.icon-pause');
       const ip = this.playOverlay.querySelector('.icon-play');
       if (pa) { pa.style.display = 'block'; pa.style.opacity = '1'; pa.style.transform = 'translate(-50%,-50%) scale(1)'; }
       if (ip) { ip.style.opacity = '0'; ip.style.display = 'block'; ip.style.transform = 'translate(-50%,-50%) scale(0.9)'; }
 
-      // ensure top overlay also shows paused state
       if (this.topOverlay) {
         this.topOverlay.classList.add('paused');
         this.topOverlay.style.display = 'flex';
@@ -1010,7 +970,6 @@
       }
     }
 
-    // Show play transient — if paused present, morph pause -> play -> hide
     _showPlayTransient() {
       if (!this.playOverlay) return;
 
@@ -1018,30 +977,24 @@
       const ip = this.playOverlay.querySelector('.icon-play');
       const spinner = this.playOverlay.querySelector('.buffer-spinner');
 
-      // 1) nascondi IMMEDIATAMENTE l'icona pause (inline) — questo soddisfa la tua richiesta
       if (pa) {
         try {
           pa.style.transition = 'none';
           pa.style.opacity = '0';
           pa.style.transform = 'translate(-50%,-50%) scale(0.88)';
-          // opzionale: rimuovi display in modo da non catturare rendering
           pa.style.display = 'none';
         } catch (e) {}
       }
-      // rimuovi classe paused subito sul bottom overlay
       this.playOverlay.classList.remove('paused');
 
-      // also remove paused/buffering from top overlay so it can hide
       if (this.topOverlay) {
         this.topOverlay.classList.remove('paused');
         this.topOverlay.classList.remove('buffering');
-        // animate-in for top overlay briefly (keeps consistent UX)
         this.topOverlay.classList.add('animate-in');
         this.topOverlay.style.display = 'flex';
         this.topOverlay.style.opacity = '1';
         setTimeout(()=> {
           try { this.topOverlay.classList.remove('animate-in'); } catch(e){}
-          // hide top overlay if nothing else
           if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
             this.topOverlay.style.opacity = '0';
             setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
@@ -1049,18 +1002,15 @@
         }, PLAY_TRANSIENT_MS + 40);
       }
 
-      // 2) hide spinner (if any) to make play animation visible
       if (spinner) {
         spinner.style.opacity = '0';
         spinner.style.display = 'none';
         this.playOverlay.classList.remove('buffering');
       }
 
-      // make overlay visible for animation
       this.playOverlay.style.display = 'flex';
       this.playOverlay.style.opacity = '1';
 
-      // prepare play icon
       if (ip) {
         ip.style.display = 'block';
         ip.style.opacity = '1';
@@ -1068,16 +1018,13 @@
         ip.style.zIndex = '9999';
       }
 
-      // animate: play zoom + fade out
       if (window.gsap) {
-        // use GSAP for smoother animation
         gsap.fromTo(ip, { scale: 0.95, opacity: 1 }, {
           scale: 1.28,
           opacity: 0,
           duration: PLAY_TRANSIENT_MS / 1000,
           ease: 'power2.out',
           onComplete: () => {
-            // cleanup: hide play icon and overlay if nothing else active
             try { ip.style.opacity = '0'; ip.style.display = 'none'; } catch (e) {}
             if (!this.playOverlay.classList.contains('buffering') && !this.playOverlay.classList.contains('paused')) {
               this.playOverlay.style.opacity = '0';
@@ -1086,7 +1033,6 @@
           }
         });
       } else {
-        // fallback: use CSS transition + timeout
         ip.style.transition = `transform ${PLAY_TRANSIENT_MS}ms cubic-bezier(.22,.9,.3,1), opacity ${PLAY_TRANSIENT_MS}ms ease`;
         requestAnimationFrame(() => {
           ip.style.transform = 'translate(-50%,-50%) scale(1.28)';
@@ -1102,7 +1048,41 @@
       }
     }
 
+    // overlay mouse handling
+    _showOverlays() {
+      if (this.playOverlay) {
+        this.playOverlay.style.display = 'flex';
+        this.playOverlay.style.opacity = '1';
+      }
+      if (this.topOverlay) {
+        this.topOverlay.style.display = 'flex';
+        this.topOverlay.style.opacity = '1';
+        this.topOverlay.classList.add('force-visible');
+        setTimeout(()=> { try { this.topOverlay.classList.remove('force-visible'); } catch(e){} }, 50);
+      }
+    }
 
+    _hideOverlays() {
+      if (this.playOverlay) {
+        if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
+          this.playOverlay.style.opacity = '0';
+          setTimeout(()=> { try { this.playOverlay.style.display = 'none'; } catch(e){} }, 220);
+        }
+      }
+      if (this.topOverlay) {
+        this.topOverlay.style.opacity = '0';
+        setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
+      }
+    }
+
+    _onMouseMove(ev) {
+      this._showOverlays();
+      if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
+      this._idleTimer = setTimeout(() => {
+        this._hideOverlays();
+        this._idleTimer = null;
+      }, MOUSE_IDLE_MS);
+    }
 
     destroy() {
       this.clearAutoplay();
@@ -1119,7 +1099,6 @@
     const section = context.querySelector('#carouselSection');
     if (!section) return;
 
-    // Prefer HOME_CAROUSEL (sorgenti separate), fallback a FEATURED_IDS -> VIDEOS
     let slides = Array.isArray(HOME_CAROUSEL) && HOME_CAROUSEL.length ? HOME_CAROUSEL.slice() : FEATURED_IDS.map(id => VIDEOS.find(v => v.id === id)).filter(Boolean);
     if (!slides.length) slides.push(...(Array.isArray(VIDEOS) ? VIDEOS.slice(0, Math.min(2, VIDEOS.length)) : []));
 
@@ -1157,11 +1136,10 @@
       catList.appendChild(li);
     });
 
-    // use the new top-overlay mute button if present (fallback null)
-    const muteBtn = section.querySelector('.top-overlay .mute-btn');
+    // gallery uses topOverlay mute only
+    const topMuteBtn = section.querySelector('.top-overlay .mute-btn');
 
     async function renderCategory(category) {
-      // safety: if VIDEOS is not an array, provide fallback empty
       const slides = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
       if (!slides.length) {
         if (galleryPlayer) galleryPlayer.destroy();
@@ -1183,12 +1161,11 @@
       } else {
         galleryPlayer = new GalleryPlayer({
           container: section,
-          slides,
-          muteBtn
+          slides
         });
       }
 
-      if (galleryPlayer && galleryPlayer.muteBtn) galleryPlayer.updateMuteButton();
+      if (galleryPlayer) galleryPlayer.updateMuteButton();
       populateGrid(galleryGrid, category);
     }
 
@@ -1224,22 +1201,17 @@
     });
   }
 
-  /* ---------------- ABOUT ---------------- */
-  function initAbout(context = document) {
-    const facts = context.querySelector('.facts');
-    setTimeout(() => { if (facts) facts.classList.add('visible'); }, 300);
-    const bioCard = context.querySelector('#bioCard');
-    const profileImg = context.querySelector('#profileImg');
-    if (bioCard && profileImg) {
-      bioCard.addEventListener('mousemove', (e) => {
-        const r = bioCard.getBoundingClientRect();
-        const dx = (e.clientX - r.left) / r.width - 0.5;
-        const dy = (e.clientY - r.top) / r.height - 0.5;
-        profileImg.style.transform = `translate(${dx * 10}px, ${dy * 6}px) scale(1.05)`;
-      });
-      bioCard.addEventListener('mouseleave', () => { profileImg.style.transform = ''; });
-    }
-  }
+  /* ---------------- Delegated click: .mute-toggle (global fallback) ----------------
+     Kept simple: toggles persistent mute and updates existing instances (home/gallery)
+  */
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest && e.target.closest('.mute-toggle');
+    if (!btn) return;
+    const newVal = !readMute();
+    writeMute(newVal);
+    if (homeCarousel && typeof homeCarousel.updateMuteButton === 'function') homeCarousel.updateMuteButton();
+    if (galleryPlayer && typeof galleryPlayer.updateMuteButton === 'function') galleryPlayer.updateMuteButton();
+  });
 
   /* ---------------- RUN / BARBA ---------------- */
   function runInits(context = document) {
@@ -1292,5 +1264,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 
-  log('main.js ready — patched (VIDEOS safe-guarded).');
+  log('main.js ready — gallery uses topMuteBtn only; mouse-idle overlays active.');
 })();

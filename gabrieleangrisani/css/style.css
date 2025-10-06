@@ -9,20 +9,31 @@
   /* ------- Custom filmmaker cursor (clapperboard) -------- */
   /* data URI SVG clapperboard: colorato con #db4338 (accent)
    hotspot: 12 12 (regola se vuoi spostarlo) */
-  --cursor-clapper: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><rect x='3' y='9' width='22' height='12' rx='2' fill='%23db4338'/><path d='M3 9 L11 4 L25 10 L17 15 Z' fill='%23000000' opacity='0.85'/><rect x='4' y='11' width='6' height='2' fill='%23fff' opacity='0.07'/><rect x='18' y='11' width='4' height='2' fill='%23fff' opacity='0.07'/></svg>" 12 12), auto;
+  --cursor-clapper: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='28'%20height='28'%20viewBox='0%200%2028%2028'%3E%3Crect%20x='3'%20y='9'%20width='22'%20height='12'%20rx='2'%20fill='%23db4338'/%3E%3Cpath%20d='M3%209%20L11%204%20L25%2010%20L17%2015%20Z'%20fill='%23000000'%20opacity='0.85'/%3E%3Crect%20x='4'%20y='11'%20width='6'%20height='2'%20fill='%23fff'%20opacity='0.07'/%3E%3Crect%20x='18'%20y='11'%20width='4'%20height='2'%20fill='%23fff'%20opacity='0.07'/%3E%3C/svg%3E") 12 12, pointer;
 
 }
 
-/* apply cursor globally (use where appropriato) */
-html, body, a, button, .control-btn, .nav-list li a, .grid-item, .carousel, .carousel * {
+/* Apply cursor globally to interactive elements + body */
+/* html, body { cursor: var(--cursor-clapper); } */
+
+/* Ensure interactive elements use the clapper cursor (override any UA defaults) */
+a, button, .control-btn, .nav-list li a, .grid-item, .control-btn, .category-list li button,  .carousel, .carousel * /*, .top-btn, .mobile-dropdown a, .hamburger, */ {
   cursor: var(--cursor-clapper);
 }
-/* Make sure text inputs still keep text cursor */
+
+/* Keep text cursor on form controls */
 input, textarea, select { cursor: text; }
 
-/* small accessibility: ensure the top overlay doesn't intercept pointer on non-buttons */
-.top-overlay { pointer-events: none; }
-.top-overlay .top-btn { pointer-events: auto; }
+/* Make sure non-interactive text doesn't accidentally show pointer:
+   (some browsers show text cursor on anchors without clickable area; enforce pointer) */
+a { cursor: var(--cursor-clapper); }
+
+/* Accessibility: keep focus outlines visible for keyboard users */
+a:focus, button:focus, .control-btn:focus, .top-btn:focus {
+  outline: 2px solid rgba(var(--accent-rgb), 0.18);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
 
 
 /* Reset + base */
@@ -153,7 +164,7 @@ main{padding-top:80px}
 /* ------ Category ------- */
 .category-nav{display:flex;justify-content:center;padding:18px 12px}
 .category-list{display:flex;gap:10px;list-style:none;overflow-x:auto;padding:6px 12px;margin:0}
-.category-list li button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.04);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700;white-space:nowrap}
+.category-list li button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.04);padding:8px 12px;border-radius:10px;font-weight:700;white-space:nowrap}
 .category-list li button:hover {
   box-shadow:0 14px 40px rgba(var(--accent-rgb))
 }
