@@ -19,12 +19,6 @@ a, button, .control-btn, .nav-list li a, .grid-item, .control-btn, .category-lis
 }
 input, textarea, select { cursor: text; }
 
-a:focus, button:focus, .control-btn:focus, .top-btn:focus {
-  outline: 2px solid rgba(var(--accent-rgb), 0.18);
-  outline-offset: 4px;
-  border-radius: 6px;
-}
-
 /* Reset + base */
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:#fff;font-family:"Futura",system-ui,-apple-system,"Segoe UI",Roboto,Arial;line-height:1.5;-webkit-font-smoothing:antialiased}
@@ -160,18 +154,54 @@ body.no-scroll{overflow:hidden}
 */
 
 /* ==================================================== GALLERY PAGE ==================================================== */
+/* outline for active category and grid */
+.category-item.active, .grid-item.focused {
+  outline: 2px solid rgba(var(--accent-rgb), 0.18);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
 .page-gallery{margin-top: 80px;}
 /* ------ Category ------- */
-.category-nav{display:flex;justify-content:center;padding:18px 12px}
-.category-list{display:flex;gap:10px;list-style:none;overflow-x:auto;padding:6px 12px;margin:0}
-.category-list li button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.04);padding:8px 12px;border-radius:10px;font-weight:700;white-space:nowrap}
-.category-list li button:hover {
-  box-shadow:0 14px 40px rgba(var(--accent-rgb))
+/* ===== category nav & glow fix ===== */
+.category-nav {
+  display:flex;
+  justify-content:center;
+  padding:18px 12px;
+  overflow: visible; /* permette al glow di uscire dal contenitore */
 }
-.category-list li button.active{background:linear-gradient(90deg,#000,#111);border-color:rgba(255,255,255,.09);color:var(--accent);transform:translateY(-4px)}
-.category-list li button.active:hover {
-  box-shadow:0 14px 40px rgba(var(--accent-rgb))
+.category-list {
+  display:flex;
+  gap:10px;
+  list-style:none;
+  overflow-x:auto;      /* mantiene lo scroll orizzontale */
+  padding:10px 14px;    /* spazio per l'effetto glow */
+  margin:0;
+  position:relative;
+  z-index:0;
 }
+.category-list li {
+  position: relative;
+  overflow: visible; /* importante: lascia spazio allo shadow */
+}
+.category-list li button {
+  background:transparent;
+  color:#fff;
+  border:1px solid rgba(255,255,255,.04);
+  padding:8px 12px;
+  border-radius:10px;
+  font-weight:700;
+  white-space:nowrap;
+  transition: transform .22s ease, box-shadow .28s ease, z-index .12s;
+  position: relative;
+  z-index: 1;
+}
+.category-list li button:hover,
+.category-list li button:focus {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 60px rgba(var(--accent-rgb), 0.44);
+  z-index: 6; /* visibile sopra gli altri elementi */
+}
+
 /* ------ GALLERY PLAYER: progress bar + buffer + click-to-play/pause UI ------- */
 .gallery-player { position: relative; width: 100%; height: 100%; display:block; cursor: pointer; }
 .gallery-player .gallery-video { display:block; width:100%; height:100%; object-fit:cover; transition:opacity .6s ease, transform .6s ease; background:#000; }
@@ -424,26 +454,37 @@ body.no-scroll{overflow:hidden}
 }
 
 /* ---------------- Grid thumbnails: blend into background + glow on hover ---------------- */
+/* ===== gallery grid thumbnails: poster + preview styles ===== */
 .gallery-grid {
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-  gap:18px;padding:20px;max-width:1200px;margin:0 auto 80px
+  gap:18px;
+  padding:20px;
+  max-width:1200px;
+  margin:0 auto 80px;
 }
 .grid-item {
   border-radius:10px;
-  overflow:hidden;
+  overflow:visible;  /* permetti allo hover overlay e shadow di uscire */
   text-decoration:none;
   color:inherit;
   position:relative;
   background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
   border: 1px solid rgba(255,255,255,0.03);
-  overflow: hidden;
-  position: relative;
   transition: transform .28s, box-shadow .28s, background .28s;
 }
-.grid-item:hover{
-  transform:translateY(-6px);
-  box-shadow:0 14px 40px rgba(var(--accent-rgb))}
+.grid-item .hover-overlay {
+  position:absolute;
+  inset:0;
+  background:linear-gradient(0deg,rgba(0,0,0,.25),rgba(0,0,0,0));
+  opacity:0;
+  transition:opacity .18s;
+  pointer-events:none;
+  border-radius: 10px;
+}
+.grid-item.hovering .hover-overlay {
+  opacity:1;
+}
 .grid-item video {
   width:100%;
   height:170px;
@@ -451,37 +492,13 @@ body.no-scroll{overflow:hidden}
   display:block;
   background:#000;
   filter: grayscale(8%) contrast(0.92) brightness(0.9);
-  transition: transform .6s cubic-bezier(.2,.9,.3,1), filter .28s;
+  transition: transform .6s cubic-bezier(.2,.9,.3,1), filter .28s, opacity .28s;
+  border-radius: 10px 10px 0 0;
+  /* il poster verrà usato come preview finché non viene impostata la src */
 }
-.grid-item:hover video {
-  transform: scale(1.06);
-  filter: grayscale(0%) contrast(1.02) brightness(1.02) saturate(1.06);
-}
-.grid-item::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: 10px;
-  box-shadow: 0 0 0 0 rgba(0,0,0,0);
-  transition: box-shadow .28s ease;
-}
-.grid-item:hover::after {
-  box-shadow: 0 12px 40px rgba(var(--accent-rgb), 0.12);
-}
-.preview-info {
+.grid-item .preview-info {
   padding:10px 12px;
-  color:#fff
-}
-.hover-overlay{
-  position:absolute;
-  inset:0;
-  background:linear-gradient(0deg,rgba(0,0,0,.25),rgba(0,0,0,0));
-  opacity:0;
-  transition:opacity .18s
-}
-.grid-item:hover .hover-overlay{
-  opacity:1
+  color:#fff;
 }
 
 /* ==================================================== ABOUT PAGE ==================================================== */

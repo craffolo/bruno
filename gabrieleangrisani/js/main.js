@@ -1,4 +1,4 @@
-// js/main.js — aggiornato: Home immersiva automatic crossfade (2 layer), gallery & barbas intact
+// js/main.js 
 (() => {
   /* ---------------- CONFIG / TIMINGS ---------------- */
   const HOME_AUTOPLAY_INTERVAL_MS = 5000;     // autoplay carosello home (modificabile)
@@ -15,6 +15,7 @@
     { 
       id: 'di-agostino-costruzioni', 
       src: 'https://jellybruno.home04.cyou/Items/afedd456c88d3f5dd2d53b6de535e9eb/Download?api_key=34cc06d14de0430c8c9715656f23abb3', 
+      poster: 'media/static/profile.png',
       title: 'Di Agostino Costruzioni', 
       desc: 'Corporate video - architecture & construction', 
       category: 'Corporate' 
@@ -263,6 +264,37 @@
     return el;
   }
 
+  /* ---------- Gallery preview helpers (lazy on hover) ---------- */
+  /* Mantiene traccia delle preview attive per interromperle quando necessario */
+  const _activePreviews = new Set();
+
+  function stopPreview(vid) {
+    if (!vid) return;
+    try {
+      vid.pause();
+      // rimuove la sorgente per liberare memoria/bandwidth
+      if (vid.getAttribute('src')) {
+        vid.removeAttribute('src');
+        if (typeof vid.load === 'function') vid.load();
+      }
+      vid.currentTime = 0;
+    } catch (e) { /* ignore */ }
+    const item = vid.closest && vid.closest('.grid-item');
+    if (item) item.classList.remove('hovering');
+    _activePreviews.delete(vid);
+  }
+
+  function stopAllPreviewsExcept(exceptVid = null) {
+    for (const v of Array.from(_activePreviews)) {
+      if (v === exceptVid) continue;
+      stopPreview(v);
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, (s) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
   function pauseAll(scope = document) {
     $$('video', scope).forEach(v => { try { v.pause(); } catch (e) {} });
   }
@@ -275,6 +307,30 @@
   const instanceMap = new WeakMap();
   let homeCarousel = null;
   let galleryPlayer = null;
+
+  /* ------------- NEW: focus helper for grid items ------------- */
+  function focusGridItem(container, index = 0) {
+    if (!container) return;
+    // find all grid items inside container
+    const items = Array.from(container.querySelectorAll('.grid-item'));
+    if (!items || items.length === 0) return;
+    // clamp index
+    const idx = Math.max(0, Math.min(index, items.length - 1));
+    // remove 'focused' class from all
+    items.forEach(it => {
+      it.classList.remove('focused');
+      // ensure they are focusable (buttons already are)
+      if (it.tabIndex < 0) it.tabIndex = 0;
+    });
+    const target = items[idx];
+    if (!target) return;
+    // add visual focused class
+    target.classList.add('focused');
+    // move DOM focus to the element so keyboard users see it too
+    try { target.focus({ preventScroll: true }); } catch (e) { try { target.focus(); } catch(e){} }
+  }
+
+  /* ---------- rest of code unchanged until populateGrid ---------- */
 
   /* ---------------- Menu (desktop inline / mobile dropdown) ---------------- */
   function initMenu(context = document) {
@@ -1047,12 +1103,30 @@
     CATEGORIES.forEach((c, idx) => {
       const li = create('li');
       const btn = create('button', {}, c);
-      btn.classList.toggle('active', idx === 0);
+
+      // non sovrascrivere classi: aggiungi la classe category-item
+      btn.classList.add('category-item');
+      // mark initial active via classe (solo visuale)
+      if (idx === 0) btn.classList.toggle('active', true);
+
+      // accessibilità e metadata
+      btn.setAttribute('data-category', c);
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
+
       btn.addEventListener('click', () => {
-        catList.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        // aggiorna stati su tutti i bottoni
+        catList.querySelectorAll('button').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
         btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+
+        // renderizza la categoria selezionata
         renderCategory(c);
       });
+
       li.appendChild(btn);
       catList.appendChild(li);
     });
@@ -1070,7 +1144,7 @@
         if (layerB) { layerB.removeAttribute('src'); layerB.load?.(); layerB.style.opacity = 0; }
         const titleEl = section.querySelector('#galleryTitle');
         if (titleEl) titleEl.textContent = 'Nessun video';
-        galleryGrid.innerHTML = `<div style="padding:28px;color:var(--muted);text-align:center">Nessun video per la categoria "${category}"</div>`;
+        galleryGrid.innerHTML = `<div style="padding:28px;color:var(--muted);text-align:center">Nessun video per la categoria "${escapeHtml(category)}"</div>`;
         return;
       }
 
@@ -1088,39 +1162,116 @@
 
       if (galleryPlayer) galleryPlayer.updateMuteButton();
       populateGrid(galleryGrid, category);
+
+      // Focus first grid item to indicate what's in focus
+      // small timeout to ensure DOM has rendered
+      setTimeout(() => focusGridItem(galleryGrid, 0), 60);
     }
 
-    renderCategory(CATEGORIES[0]);
+    // Decide initial category: prefer button.active se presente, altrimenti CATEGORIES[0]
+    const activeBtn = catList.querySelector('button.active');
+    const initialCategory = activeBtn ? (activeBtn.getAttribute('data-category') || CATEGORIES[0]) : CATEGORIES[0];
+
+    // Ensure the active button is focused visually / for keyboard users
+    setTimeout(() => {
+      const btnToFocus = catList.querySelector(`button[data-category="${initialCategory}"]`) || catList.querySelector('button');
+      if (btnToFocus) {
+        try { btnToFocus.focus({ preventScroll: true }); } catch (e) { btnToFocus.focus(); }
+      }
+    }, 40);
+
+    // render initial category
+    renderCategory(initialCategory);
   }
 
-  function populateGrid(container, category) {
-    container.innerHTML = '';
-    const items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
-    items.forEach((v, idx) => {
-      const btn = create('button', { class: 'grid-item', type: 'button', dataset: { id: v.id } });
-      btn.innerHTML = `
-        <video src="${v.src}" preload="metadata" playsinline muted></video>
-        <div class="hover-overlay" aria-hidden="true"></div>
-        <div class="preview-info"><strong>${v.title}</strong></div>
-        <div class="preview-info"><small>${v.desc}</small></div>
-      `;
-      const vid = btn.querySelector('video');
-      let t = null;
-      btn.addEventListener('mouseenter', () => {
-        t = setTimeout(() => { try { vid.play().catch(()=>{}); } catch(e){}; btn.classList.add('hovering'); }, 60);
-      });
-      btn.addEventListener('mouseleave', () => { if (t) clearTimeout(t); try { vid.pause(); vid.currentTime = 0; } catch(e){}; btn.classList.remove('hovering'); });
 
+  function populateGrid(container, category) {
+    // pulisce e rimuove eventuali preview attive
+    stopAllPreviewsExcept(null);
+    container.innerHTML = '';
+
+    const items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
+
+    items.forEach((v, idx) => {
+      // preferisci poster esplicito, altrimenti fallback su media/posters/<id>.jpg
+      const posterUrl = v.poster || (`media/posters/${v.id}.jpg`);
+
+      // crea bottone/thumbnail senza src video iniziale per lazy load
+      const btn = create('button', { class: 'grid-item', type: 'button', dataset: { id: v.id, index: idx } });
+      btn.innerHTML = `
+        <video data-src="${v.src || ''}" poster="${posterUrl}" preload="none" playsinline muted loop aria-hidden="true"></video>
+        <div class="hover-overlay" aria-hidden="true"></div>
+        <div class="preview-info"><strong>${escapeHtml(v.title || '')}</strong></div>
+        <div class="preview-info"><small>${escapeHtml(v.desc || '')}</small></div>
+      `;
+
+      const vid = btn.querySelector('video');
+      let hoverTimer = null;
+
+      // helper che carica e avvia la preview in maniera sicura (requestIdleCallback fallback)
+      const loadAndPlayPreview = () => {
+        if (!vid) return;
+        // se non ha src e ha data-src valido, carica
+        const ds = vid.dataset && vid.dataset.src ? vid.dataset.src.trim() : '';
+        if (!vid.getAttribute('src') && ds) {
+          const doLoad = () => {
+            try {
+              // interrompi altre preview
+              stopAllPreviewsExcept(vid);
+              vid.src = ds;
+              // assicura attributi necessari
+              vid.preload = 'metadata';
+              vid.muted = true;
+              vid.loop = true;
+              // play appena pronto
+              vid.load();
+              vid.play().catch(()=>{});
+              btn.classList.add('hovering');
+              _activePreviews.add(vid);
+            } catch (e) { /* ignore */ }
+          };
+          if ('requestIdleCallback' in window) requestIdleCallback(doLoad, { timeout: 120 });
+          else setTimeout(doLoad, 80);
+        } else if (vid.getAttribute('src')) {
+          // già caricato: semplicemente play
+          try { vid.play().catch(()=>{}); btn.classList.add('hovering'); _activePreviews.add(vid); } catch(e){}
+        }
+      };
+
+      // pointer events: pointerenter/leave coprono mouse + pen; per touch non forziamo preview (click apre player)
+      btn.addEventListener('pointerenter', () => {
+        if (hoverTimer) clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(loadAndPlayPreview, 60);
+      });
+
+      btn.addEventListener('pointerleave', () => {
+        if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+        // fermiamo e scarichiamo dopo breve delay per evitare flicker se entra/esce rapidamente
+        setTimeout(() => {
+          // se non è nel set active (ad es. l'utente non ha toccato), stop
+          stopPreview(vid);
+        }, 80);
+      });
+
+      // click: apre il video nel player in alto
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
+        // stop preview globali (libera banda/memoria)
+        stopAllPreviewsExcept(null);
         if (galleryPlayer) {
           galleryPlayer.playIndex(idx, { userTriggered: true });
         }
+        // set focus visual on the clicked thumbnail
+        focusGridItem(container, idx);
       });
 
       container.appendChild(btn);
     });
+
+    // After populating, focus the first grid item so it's clear what's in focus
+    setTimeout(() => focusGridItem(container, 0), 40);
   }
+
 
   /* ---------------- RUN / BARBA ---------------- */
   function runInits(context = document) {
