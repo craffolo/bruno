@@ -292,17 +292,17 @@
   }
 
   function escapeHtml(str) {
-    return String(str || '').replace(/[&<>"']/g, (s) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    return String(str || '').replace(/[&<>"']/g, (s) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
   }
 
   function pauseAll(scope = document) {
-    $$('video', scope).forEach(v => { try { v.pause(); } catch (e) {} });
+    $$('video', scope).forEach(v => { try { v.pause(); } catch (e) { } });
   }
 
   /* persistent mute preference (used by GalleryPlayer) */
   const MUTE_KEY = 'site_mute_pref';
   function readMute() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
-  function writeMute(v) { try { localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) {} }
+  function writeMute(v) { try { localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) { } }
 
   const instanceMap = new WeakMap();
   let homeCarousel = null;
@@ -318,16 +318,16 @@
     const idx = Math.max(0, Math.min(index, items.length - 1));
     // remove 'focused' class from all
     items.forEach(it => {
-      it.classList.remove('focused');
+      it.classList.remove('is-current');
       // ensure they are focusable (buttons already are)
       if (it.tabIndex < 0) it.tabIndex = 0;
     });
     const target = items[idx];
     if (!target) return;
     // add visual focused class
-    target.classList.add('focused');
+    target.classList.add('is-current');
     // move DOM focus to the element so keyboard users see it too
-    try { target.focus({ preventScroll: true }); } catch (e) { try { target.focus(); } catch(e){} }
+    try { target.focus({ preventScroll: true }); } catch (e) { try { target.focus(); } catch (e) { } }
   }
 
   /* ---------- rest of code unchanged until populateGrid ---------- */
@@ -399,7 +399,7 @@
         v.muted = true;
         v.loop = false;
         v.preload = 'auto';
-        v.classList.remove('active','inactive');
+        v.classList.remove('active', 'inactive');
       });
 
       // initial state
@@ -427,12 +427,12 @@
       if (!meta) return;
       this.layerA.src = meta.src || '';
       this.layerA.load();
-      this.layerA.play().catch(()=>{});
+      this.layerA.play().catch(() => { });
     }
 
     _startLoop() {
       if (this.timer) clearInterval(this.timer);
-      this.timer = setInterval(()=> this._switchTo((this.index + 1) % this.slides.length), this.interval);
+      this.timer = setInterval(() => this._switchTo((this.index + 1) % this.slides.length), this.interval);
     }
 
     _switchTo(nextIndex) {
@@ -448,7 +448,7 @@
       const onCan = () => {
         inactiveEl.removeEventListener('canplay', onCan);
         // play inactive, then crossfade
-        inactiveEl.play().catch(()=>{});
+        inactiveEl.play().catch(() => { });
         if (window.gsap) {
           // crossfade + slight scale animation
           inactiveEl.style.zIndex = 3;
@@ -458,7 +458,7 @@
           tl.to(inactiveEl, { opacity: 1, scale: 1, duration: 1.2, ease: 'power2.out' }, 0);
           tl.to(activeEl, { opacity: 0, scale: 1, duration: 1.2, ease: 'power2.out' }, 0);
           tl.call(() => {
-            try { activeEl.pause(); } catch(e){}
+            try { activeEl.pause(); } catch (e) { }
             activeEl.classList.remove('active'); activeEl.classList.add('inactive');
             inactiveEl.classList.remove('inactive'); inactiveEl.classList.add('active');
             this.active = (this.active === 'A') ? 'B' : 'A';
@@ -470,7 +470,7 @@
           inactiveEl.classList.add('active');
           activeEl.classList.remove('active');
           activeEl.classList.add('inactive');
-          try { activeEl.pause(); } catch(e){}
+          try { activeEl.pause(); } catch (e) { }
           this.active = (this.active === 'A') ? 'B' : 'A';
           this.index = nextIndex;
         }
@@ -481,11 +481,11 @@
 
     destroy() {
       if (this.timer) { clearInterval(this.timer); this.timer = null; }
-      try { this.layerA.pause(); this.layerB.pause(); } catch(e){}
+      try { this.layerA.pause(); this.layerB.pause(); } catch (e) { }
     }
   }
 
-  /* ---------------- GalleryPlayer (double video) with progress + click-to-play (left intact) ---------------- */
+  /* ---------------- GalleryPlayer (HLS-enabled, grid sync, safe Hls cleanup) ---------------- */
   class GalleryPlayer {
     constructor(opts) {
       this.container = opts.container;
@@ -502,6 +502,10 @@
       this.topOverlay = this.container.querySelector('.top-overlay');
       this.topMuteBtn = this.container.querySelector('.top-overlay .mute-btn');
       this.topFsBtn = this.container.querySelector('.top-overlay .fs-btn');
+
+      // HLS instances per layer
+      this._hlsA = null;
+      this._hlsB = null;
 
       this._wireTopControls();
       this.slides = opts.slides || [];
@@ -534,11 +538,11 @@
           this.playOverlay.style.display = 'none';
         }
         if (this.topOverlay) {
-          this.topOverlay.classList.remove('paused','buffering','animate-in','force-visible');
+          this.topOverlay.classList.remove('paused', 'buffering', 'animate-in', 'force-visible');
           this.topOverlay.style.display = 'none';
           this.topOverlay.style.opacity = '0';
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // mouse idle / overlay show-hide
       this._idleTimer = null;
@@ -555,11 +559,59 @@
       // show overlays briefly at init
       this._showOverlays();
       if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
-      this._idleTimer = setTimeout(()=> { this._hideOverlays(); this._idleTimer = null; }, MOUSE_IDLE_MS);
+      this._idleTimer = setTimeout(() => { this._hideOverlays(); this._idleTimer = null; }, MOUSE_IDLE_MS);
 
+      // if slides present, start with first
       if (this.slides.length) this.playIndex(0, { autoplayStart: true });
       this.resetAutoplay();
       this._attachInteractionListeners();
+    }
+
+    /* ---------------- Helpers: HLS attach/destroy ---------------- */
+    _destroyHlsForLayer(layerId) {
+      try {
+        if (layerId === 'A' && this._hlsA) { this._hlsA.destroy(); this._hlsA = null; }
+        if (layerId === 'B' && this._hlsB) { this._hlsB.destroy(); this._hlsB = null; }
+      } catch (e) { /* ignore */ }
+    }
+
+    async _attachSourceToLayer(layerEl, url, layerId) {
+      // cleanup any previous hls for that layer
+      this._destroyHlsForLayer(layerId);
+
+      // if HLS manifest and hls.js available -> use it
+      if (typeof url === 'string' && url.endsWith('.m3u8') && window.Hls && Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true, xhrSetup: (xhr, url) => {
+            // allow servers requiring specific headers; keep default otherwise
+          }
+        });
+        hls.attachMedia(layerEl);
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+          try { hls.loadSource(url); } catch (e) { }
+        });
+        if (layerId === 'A') this._hlsA = hls; else this._hlsB = hls;
+      } else {
+        // fallback to direct src (mp4 or remote url)
+        try {
+          layerEl.removeAttribute('src');
+          layerEl.src = url || '';
+          layerEl.load();
+        } catch (e) { }
+      }
+
+      // wait until playable (canplay) — resolves when the layer is ready to play
+      return new Promise((resolve) => {
+        const onCan = () => {
+          try { layerEl.removeEventListener('canplay', onCan); } catch (e) { }
+          resolve();
+        };
+        // if already ready
+        if (layerEl.readyState >= 3) return resolve();
+        layerEl.addEventListener('canplay', onCan);
+        // safety timeout in case canplay doesn't fire
+        setTimeout(() => resolve(), 3000);
+      });
     }
 
     _setupLayers() {
@@ -606,17 +658,17 @@
     toggleFullscreen() {
       const el = this.container;
       if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-        if (el.requestFullscreen) el.requestFullscreen().catch(()=>{});
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => { });
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
         else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
         else if (el.msRequestFullscreen) el.msRequestFullscreen();
       } else {
-        if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => { });
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
         else if (document.msExitFullscreen) document.msExitFullscreen();
       }
-      setTimeout(()=> this.updateFullscreenButton(), 250);
+      setTimeout(() => this.updateFullscreenButton(), 250);
     }
 
     updateFullscreenButton() {
@@ -654,7 +706,7 @@
           this.playOverlay.classList.remove('paused');
           if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
             this.playOverlay.style.opacity = '0';
-            setTimeout(()=> { try { this.playOverlay.style.display = 'none'; } catch(e){} }, 220);
+            setTimeout(() => { try { this.playOverlay.style.display = 'none'; } catch (e) { } }, 220);
           }
         }
       }
@@ -718,6 +770,7 @@
       this.playIndex(nextIndex);
     }
 
+    /* ---------------- core: playIndex with HLS support + optional crossfade ---------------- */
     async playIndex(i, opts = {}) {
       if (!this.slides.length) return;
       i = (i + this.slides.length) % this.slides.length;
@@ -727,65 +780,81 @@
 
       const backLayer = (this.front === 'A') ? this.layerB : this.layerA;
       const frontLayer = (this.front === 'A') ? this.layerA : this.layerB;
+      const backLayerId = (this.front === 'A') ? 'B' : 'A';
 
-      try { backLayer.pause(); } catch (e) {}
-      backLayer.removeAttribute('src');
-      backLayer.src = meta.src || '';
-      backLayer.load();
+      try { backLayer.pause(); } catch (e) { }
+      // detach previous src / hls of backLayer to ensure clean attach
+      try { backLayer.removeAttribute('src'); } catch (e) { }
 
+      // Attach source (HLS if available) and wait until it can play
+      await this._attachSourceToLayer(backLayer, meta.hls || meta.src || '', backLayerId);
+
+      // ensure mute sync
       const muted = readMute();
       backLayer.muted = !!muted;
       frontLayer.muted = !!muted;
 
-      const onLoaded = () => {
-        backLayer.removeEventListener('loadedmetadata', onLoaded);
+      // start backLayer and perform transition (GSAP crossfade if available, otherwise quick cut)
+      try {
         backLayer.currentTime = 0;
-        backLayer.play().catch(()=>{});
+        backLayer.play().catch(() => { });
+
         if (window.gsap) {
           backLayer.style.zIndex = 3;
           frontLayer.style.zIndex = 2;
+          // crossfade + slight scale (if you want a pure cut: replace with immediate styles)
           gsap.fromTo(backLayer, { opacity: 0, scale: 1.02 }, { opacity: 1, scale: 1, duration: 0.6, ease: 'power2.out' });
-          gsap.to(frontLayer, { opacity: 0, scale: 0.98, duration: 0.6, ease: 'power2.out', onComplete: () => {
-            frontLayer.pause();
-            frontLayer.currentTime = 0;
+          gsap.to(frontLayer, {
+            opacity: 0, scale: 0.98, duration: 0.6, ease: 'power2.out', onComplete: () => {
+              try { frontLayer.pause(); frontLayer.currentTime = 0; } catch (e) { }
             this.front = (this.front === 'A') ? 'B' : 'A';
-            this._syncTitle(meta.title);
-            this._flashOverlay();
-            this._startProgressLoop();
-          }});
-        } else {
-          backLayer.style.opacity = 0;
-          backLayer.style.zIndex = 3;
-          frontLayer.style.zIndex = 2;
-          backLayer.style.transform = 'scale(1.02)';
-          frontLayer.style.transform = 'scale(1)';
-          const steps = 12;
-          let step = 0;
-          const t = setInterval(() => {
-            step++;
-            const p = step / steps;
-            backLayer.style.opacity = String(p);
-            frontLayer.style.opacity = String(1 - p);
-            backLayer.style.transform = `scale(${1.02 - (0.02 * p)})`;
-            frontLayer.style.transform = `scale(${1 - (0.02 * p)})`;
-            if (step >= steps) {
-              clearInterval(t);
-              frontLayer.pause();
-              frontLayer.currentTime = 0;
-              this.front = (this.front === 'A') ? 'B' : 'A';
-              this._syncTitle(meta.title);
-              this._flashOverlay();
-              this._startProgressLoop();
+              this._onAfterPlaySwitch(i, meta);
             }
-          }, 60);
+          });
+        } else {
+          // quick fade fallback (short)
+          backLayer.style.opacity = 1;
+          backLayer.style.zIndex = 3;
+          frontLayer.style.opacity = 0;
+          frontLayer.style.zIndex = 2;
+          try { frontLayer.pause(); frontLayer.currentTime = 0; } catch (e) { }
+              this.front = (this.front === 'A') ? 'B' : 'A';
+          this._onAfterPlaySwitch(i, meta);
+            }
+      } catch (e) {
+        // even if transition fails, ensure state updated
+        this.front = (this.front === 'A') ? 'B' : 'A';
+        this._onAfterPlaySwitch(i, meta);
         }
-      };
-      backLayer.addEventListener('loadedmetadata', onLoaded);
 
       this.currentIndex = i;
       this.resetAutoplay();
       this._startProgressLoop();
     }
+
+    _onAfterPlaySwitch(i, meta) {
+      this._syncTitle(meta.title);
+      this._flashOverlay();
+      this._startProgressLoop();
+
+      // Update grid highlight to reflect currently playing item
+      this._highlightGridItem(i);
+
+      // --- NEW: also move the "focus" / visual selection in the grid so autoplay
+      // updates the focused thumbnail exactly like a user click would.
+      try {
+        const grid = document.getElementById('galleryGrid');
+        if (!this.isManual) focusGridItem(grid, i);
+      } catch (e) { /* ignore */ }
+
+      // Preload next (non-blocking)
+      const nextIndex = (i + 1) % this.slides.length;
+      const inactiveLayer = (this.front === 'A') ? this.layerB : this.layerA;
+      const inactiveId = (this.front === 'A') ? 'B' : 'A';
+      // don't await
+      this._attachSourceToLayer(inactiveLayer, (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].src)) || '', inactiveId).catch(()=>{});
+    }
+
 
     _syncTitle(t) {
       if (this.titleEl) this.titleEl.textContent = t || '';
@@ -832,9 +901,9 @@
       if (buf && layer.buffered && layer.buffered.length) {
         try {
           let end = 0;
-          for (let i=0;i<layer.buffered.length;i++){
+          for (let i = 0; i < layer.buffered.length; i++) {
             try { if (layer.buffered.start(i) <= cur) end = layer.buffered.end(i); }
-            catch(e){ end = layer.buffered.end(layer.buffered.length-1); }
+            catch (e) { end = layer.buffered.end(layer.buffered.length - 1); }
           }
           const bufPct = (dur > 0) ? Math.min(100, (end / dur) * 100) : 0;
           buf.style.width = bufPct + '%';
@@ -860,7 +929,7 @@
         if (!front) return;
 
         if (front.paused) {
-          front.play().catch(()=>{});
+          front.play().catch(() => { });
           this._onUserInteraction();
           this._startProgressLoop();
           this._showPlayTransient();
@@ -879,7 +948,7 @@
       let dragging = false;
       let pointerId = null;
 
-      const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
+      const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 
       const updateSeekFromEvent = (ev) => {
         const rect = wrap.getBoundingClientRect();
@@ -888,8 +957,8 @@
         const front = this._getFrontLayer();
         const dur = front && front.duration ? front.duration : 0;
         if (dur > 0) {
-          try { front.currentTime = frac * dur; } catch(e){}
-          if (this.progressBar) this.progressBar.style.width = (frac*100) + '%';
+          try { front.currentTime = frac * dur; } catch (e) { }
+          if (this.progressBar) this.progressBar.style.width = (frac * 100) + '%';
         }
       };
 
@@ -914,7 +983,7 @@
       const stopDrag = (ev) => {
         if (!dragging) return;
         dragging = false;
-        try { wrap.releasePointerCapture?.(pointerId); } catch (e) {}
+        try { wrap.releasePointerCapture?.(pointerId); } catch (e) { }
         wrap.classList.remove('dragging');
         pointerId = null;
         const front = this._getFrontLayer();
@@ -964,7 +1033,7 @@
           pa.style.opacity = '0';
           pa.style.transform = 'translate(-50%,-50%) scale(0.88)';
           pa.style.display = 'none';
-        } catch (e) {}
+        } catch (e) { }
       }
       this.playOverlay.classList.remove('paused');
 
@@ -974,11 +1043,11 @@
         this.topOverlay.classList.add('animate-in');
         this.topOverlay.style.display = 'flex';
         this.topOverlay.style.opacity = '1';
-        setTimeout(()=> {
-          try { this.topOverlay.classList.remove('animate-in'); } catch(e){}
+        setTimeout(() => {
+          try { this.topOverlay.classList.remove('animate-in'); } catch (e) { }
           if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
             this.topOverlay.style.opacity = '0';
-            setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
+            setTimeout(() => { try { this.topOverlay.style.display = 'none'; } catch (e) { } }, 220);
           }
         }, PLAY_TRANSIENT_MS + 40);
       }
@@ -1006,10 +1075,10 @@
           duration: PLAY_TRANSIENT_MS / 1000,
           ease: 'power2.out',
           onComplete: () => {
-            try { ip.style.opacity = '0'; ip.style.display = 'none'; } catch (e) {}
+            try { ip.style.opacity = '0'; ip.style.display = 'none'; } catch (e) { }
             if (!this.playOverlay.classList.contains('buffering') && !this.playOverlay.classList.contains('paused')) {
               this.playOverlay.style.opacity = '0';
-              setTimeout(()=> this.playOverlay.style.display = 'none', 220);
+              setTimeout(() => this.playOverlay.style.display = 'none', 220);
             }
           }
         });
@@ -1020,10 +1089,10 @@
           ip.style.opacity = '0';
         });
         setTimeout(() => {
-          try { ip.style.display = 'none'; ip.style.opacity = '0'; } catch(e){}
+          try { ip.style.display = 'none'; ip.style.opacity = '0'; } catch (e) { }
           if (!this.playOverlay.classList.contains('buffering') && !this.playOverlay.classList.contains('paused')) {
             this.playOverlay.style.opacity = '0';
-            setTimeout(()=> this.playOverlay.style.display = 'none', 220);
+            setTimeout(() => this.playOverlay.style.display = 'none', 220);
           }
         }, PLAY_TRANSIENT_MS + 20);
       }
@@ -1039,7 +1108,7 @@
         this.topOverlay.style.display = 'flex';
         this.topOverlay.style.opacity = '1';
         this.topOverlay.classList.add('force-visible');
-        setTimeout(()=> { try { this.topOverlay.classList.remove('force-visible'); } catch(e){} }, 50);
+        setTimeout(() => { try { this.topOverlay.classList.remove('force-visible'); } catch (e) { } }, 50);
       }
     }
 
@@ -1047,12 +1116,12 @@
       if (this.playOverlay) {
         if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
           this.playOverlay.style.opacity = '0';
-          setTimeout(()=> { try { this.playOverlay.style.display = 'none'; } catch(e){} }, 220);
+          setTimeout(() => { try { this.playOverlay.style.display = 'none'; } catch (e) { } }, 220);
         }
       }
       if (this.topOverlay) {
         this.topOverlay.style.opacity = '0';
-        setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
+        setTimeout(() => { try { this.topOverlay.style.display = 'none'; } catch (e) { } }, 220);
       }
     }
 
@@ -1065,15 +1134,32 @@
       }, MOUSE_IDLE_MS);
     }
 
+    /* ---------------- Grid highlight helper (keeps UI in sync) ---------------- */
+    _highlightGridItem(index) {
+      try {
+        const grid = document.getElementById('galleryGrid');
+        if (!grid) return;
+        // clear existing
+        grid.querySelectorAll('.is-current').forEach(el => el.classList.remove('is-current'));
+        // find button with data-index
+        const item = grid.querySelector(`[data-index="${index}"]`);
+        if (item) item.classList.add('is-current');
+      } catch (e) { }
+    }
+
     destroy() {
       this.clearAutoplay();
       this._stopProgressLoop();
       if (this._pauseTimeoutId) { clearTimeout(this._pauseTimeoutId); this._pauseTimeoutId = null; }
       try {
         this.layerA.pause(); this.layerB.pause();
-      } catch (e) {}
+      } catch (e) { }
+      // destroy any hls instances
+      this._destroyHlsForLayer('A');
+      this._destroyHlsForLayer('B');
     }
   }
+
 
   /* ---------------- Home init (creates HomeCarousel) ---------------- */
   function initHome(context = document) {
@@ -1225,7 +1311,7 @@
               vid.loop = true;
               // play appena pronto
               vid.load();
-              vid.play().catch(()=>{});
+              vid.play().catch(() => { });
               btn.classList.add('hovering');
               _activePreviews.add(vid);
             } catch (e) { /* ignore */ }
@@ -1234,7 +1320,7 @@
           else setTimeout(doLoad, 80);
         } else if (vid.getAttribute('src')) {
           // già caricato: semplicemente play
-          try { vid.play().catch(()=>{}); btn.classList.add('hovering'); _activePreviews.add(vid); } catch(e){}
+          try { vid.play().catch(() => { }); btn.classList.add('hovering'); _activePreviews.add(vid); } catch (e) { }
         }
       };
 
@@ -1288,7 +1374,7 @@
         sync: true,
         transitions: [{
           async leave(data) {
-            try { pauseAll(data.current.container); } catch (e) {}
+            try { pauseAll(data.current.container); } catch (e) { }
             if (window.gsap) await gsap.to(data.current.container, { opacity: 0, y: -20, duration: 0.32 });
           },
           async enter(data) {
