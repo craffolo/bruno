@@ -96,7 +96,7 @@ body.no-scroll{overflow:hidden}
 .nav-list li a:hover, .nav-list li a:focus{
   outline: none;
 }
-
+/* ==================================================== HOME PAGE ==================================================== */
 /* ---------- LAYOUT ---------- */
 /* reduce the top padding so content starts immediately under header */
 /* main{padding-top:80px} */
@@ -155,7 +155,7 @@ body.no-scroll{overflow:hidden}
 
 /* ==================================================== GALLERY PAGE ==================================================== */
 /* outline for active category and grid */
-.category-item.active, .grid-item.focused {
+.category-item.active, .is-current {
   outline: 2px solid rgba(var(--accent-rgb), 0.18);
   outline-offset: 4px;
   border-radius: 6px;
