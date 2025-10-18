@@ -1,11 +1,13 @@
-// js/main.js 
+// js/main.js
 (() => {
   /* ---------------- CONFIG / TIMINGS ---------------- */
-  const GALLERY_AUTOPLAY_INTERVAL_MS = 15000; // autoplay gallery player (resta)
-
-  const SLIDE_CHANGE_OVERLAY_MS = 2000;
+  const HOME_AUTOPLAY_INTERVAL_MS = 5000;     // legacy (non più usato se autoplay by end)
+  const GALLERY_AUTOPLAY_INTERVAL_MS = 15000; // autoplay gallery player (usato se non manuale)
+  const SLIDE_CHANGE_OVERLAY_MS = 1500;
   const PLAY_TRANSIENT_MS = 500;
   const MOUSE_IDLE_MS = 2000; // per gallery overlay
+  // overlay idle timeout (ms) — dopo quanto nascondere overlay se il mouse non si muove
+  const OVERLAY_IDLE_MS = 2000;
 
   /* ---------------- DATA (esempio) ---------------- */
   const HOME_CAROUSEL = (typeof window !== 'undefined' && window.HOME_CAROUSEL) ? window.HOME_CAROUSEL : [
@@ -24,7 +26,7 @@
       mp4: 'media/home/alici_di_menaica_carousel.mp4', 
       title: 'Alici di Menaica', 
       category: 'Documentaries', 
-      galleryId: 'alici_di_menaica_mini_doc' 
+      galleryId: 'alici_di_menaica_teaser' 
     },
     { 
       id: 'cm_festa_fine_campagna_carousel', 
@@ -38,7 +40,7 @@
       hls: 'media/home/human_carousel/index.m3u8', 
       mp4: 'media/home/human_carousel.mp4', 
       title: 'Human', 
-      category: 'Music' , 
+      category: 'Music Videos' , 
       galleryId: '' 
     },
     { 
@@ -179,8 +181,8 @@
   function readMute() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
   function writeMute(v) { try { localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) {} }
 
-  /* HLS management (centralized) */
-  const _hlsMap = new Map(); // key -> Hls instance
+  /* ---------------- HLS management (centralized) ---------------- */
+  const _hlsMap = new Map();
   function _hlsKeyFor(el) {
     if (!el) return null;
     if (!el.dataset._hlsKey) el.dataset._hlsKey = `hls_${Math.random().toString(36).slice(2,9)}`;
@@ -197,10 +199,6 @@
     } catch (e) {}
   }
 
-  /**
-   * Attach an HLS manifest or mp4 to a <video> element.
-   * Resolves when canplay or a short timeout.
-   */
   function attachSource(videoEl, url) {
     return new Promise((resolve) => {
       if (!videoEl) return resolve();
@@ -214,7 +212,9 @@
         try {
           const hls = new Hls({ enableWorker: true });
           hls.attachMedia(videoEl);
-          hls.on(Hls.Events.MEDIA_ATTACHED, () => { try { hls.loadSource(url); } catch (e) {} });
+          hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+            try { hls.loadSource(url); } catch (e) {}
+          });
           _hlsMap.set(key, hls);
         } catch (e) {
           try { videoEl.removeAttribute('src'); videoEl.src = url; videoEl.load(); } catch (e) {}
@@ -227,44 +227,12 @@
         try { videoEl.removeEventListener('canplay', onCan); } catch (e) {}
         resolve();
       };
+
       if (videoEl.readyState >= 3) return resolve();
       videoEl.addEventListener('canplay', onCan);
       setTimeout(() => { try { videoEl.removeEventListener('canplay', onCan); } catch(e){}; resolve(); }, 4000);
     });
   }
-
-  /* ---------------- hash listener ---------------- */
-    window.addEventListener('hashchange', () => {
-    const hash = location.hash.replace(/^#/, "");
-    const params = Object.fromEntries(new URLSearchParams(hash));
-
-    if (params.cat) {
-      // Se siamo sulla home, cambia vista
-      if (!document.body.classList.contains('gallery-mode')) {
-        document.body.classList.remove('home-mode');
-        document.body.classList.add('gallery-mode');
-        initGallery(document);
-      }
-
-      // Cambia categoria se differente
-      if (params.cat !== currentCategory) {
-        renderCategory(params.cat);
-      }
-
-      // Se è specificato un video, selezionalo
-      if (params.vid) {
-        const video = VIDEOS.find(v => v.id === params.vid);
-        if (video && window.galleryPlayer) {
-          window.galleryPlayer.playIndex(VIDEOS.indexOf(video), { userTriggered: true });
-        }
-      }
-    } else {
-      // Se hash rimosso => torna alla home
-      document.body.classList.remove('gallery-mode');
-      document.body.classList.add('home-mode');
-      initHome(document);
-    }
-  });
 
   /* ---------------- preview helpers ---------------- */
   const _activePreviews = new Set();
@@ -302,6 +270,9 @@
     try { target.focus({ preventScroll: true }); } catch (e) { try { target.focus(); } catch (e) {} }
   }
 
+  let homeCarousel = null;
+  let galleryPlayer = null;
+
   /* ---------------- Menu ---------------- */
   function initMenu(context = document) {
     const navToggle = context.querySelector('#navToggle');
@@ -336,133 +307,64 @@
     });
   }
 
-  // --- URL/hash helpers per la gallery ---
-  function _makeGalleryHash({ cat = '', vid = '' } = {}) {
-    const parts = [];
-    if (cat) parts.push('cat=' + encodeURIComponent(cat));
-    if (vid) parts.push('vid=' + encodeURIComponent(vid));
-    return parts.length ? ('#' + parts.join('&')) : '';
-  }
-
-  function _parseGalleryHash(hash = location.hash) {
-    const out = {};
-    const h = (hash || '').replace(/^#/, '');
-    if (!h) return out;
-    h.split('&').forEach(pair => {
-      const [k, v] = pair.split('=');
-      if (!k) return;
-      try { out[k] = v ? decodeURIComponent(v) : ''; } catch(e) { out[k] = v || ''; }
-    });
-    return out;
-  }
-
-  let homeCarousel = null;
-  let galleryPlayer = null;
-
-  /* ---------------- HomeCarousel (cut, HLS enabled, advance on ended) ---------------- */
+  /* ---------------- HomeCarousel (cut, HLS enabled) ---------------- */
   class HomeCarousel {
     constructor(opts) {
       this.container = opts.container;
       this.slides = opts.slides || [];
+      this.interval = opts.interval || HOME_AUTOPLAY_INTERVAL_MS;
       this.layerA = this.container.querySelector('.layer-a');
       this.layerB = this.container.querySelector('.layer-b');
       this.bottomOverlay = this.container.querySelector('.home-carousel-bottom') || null;
       this.active = 'A';
       this.index = 0;
+      this.timer = null;
 
       if (!this.container || !this.layerA || !this.layerB) return;
-
-      // prepare layers
       [this.layerA, this.layerB].forEach(v => {
         v.playsInline = true;
         v.muted = true;
-        v.loop = false; // we manage looping at carousel level
+        v.loop = false;
         v.preload = 'auto';
         v.classList.remove('active','inactive');
       });
       this.layerA.classList.add('active');
       this.layerB.classList.add('inactive');
 
-      // create bottom overlay if missing
       if (!this.bottomOverlay) {
         this.bottomOverlay = create('div', { class: 'home-carousel-bottom' }, '');
         this.container.appendChild(this.bottomOverlay);
       }
       this._renderOverlay('', '');
 
-      // bind ended handler
-      this._onEndedBound = (e) => {
-        // only advance if the ended event comes from the currently active layer
-        if ((e.target === this.layerA && this.active === 'A') || (e.target === this.layerB && this.active === 'B')) {
-          this._advance();
-        }
-      };
-      this.layerA.addEventListener('ended', this._onEndedBound);
-      this.layerB.addEventListener('ended', this._onEndedBound);
-
-      // start - ensure slides available
       if (!this.slides.length && Array.isArray(VIDEOS) && VIDEOS.length) {
         this.slides = VIDEOS.slice(0, Math.min(5, VIDEOS.length));
       }
       if (this.slides.length) this._loadInitial();
 
-      // click behavior: navigate to gallery and select item
+      // Autoplay by video end instead of fixed interval:
+      // attach ended event on active layer to advance.
+      const handleEnded = () => this._advanceOnEnd();
+      this.layerA.addEventListener('ended', handleEnded);
+      this.layerB.addEventListener('ended', handleEnded);
+
+      // make overlay clickable -> load gallery select category and play video
       this.bottomOverlay.addEventListener('click', (e) => {
         e.stopPropagation();
         const meta = this.slides[this.index];
         if (!meta) return;
 
-        // If gallery present on the current page -> perform in-page selection
-        const gallerySection = document.querySelector('#galleryCarouselSection');
-        const category = meta.category || '';
-        const vidId = meta.galleryId || meta.id || '';
+        // Build query params
+        const params = new URLSearchParams();
+        if (meta.category) params.set('cat', meta.category);
+        if (meta.galleryId) params.set('vid', meta.galleryId);
 
-        if (gallerySection) {
-          // click category button if exists
-          const catBtn = document.querySelector(`#categoryList button[data-category="${category}"]`);
-          if (catBtn) catBtn.click();
-          // wait for gallery to render (renderCategory fires 'gallery:rendered')
-          const trySelect = () => {
-            const grid = document.getElementById('galleryGrid');
-            if (grid && vidId) {
-              const item = grid.querySelector(`[data-id="${vidId}"]`);
-              if (item) {
-                item.click();
-                return true;
-              }
-              // maybe the item is present but index-based: try to find by dataset index
-              const idx = (Array.isArray(VIDEOS) ? VIDEOS.findIndex(v => v.id === vidId) : -1);
-              if (idx >= 0 && window.galleryPlayer) {
-                galleryPlayer.playIndex(idx, { userTriggered: true });
-                return true;
-              }
-            }
-            return false;
-          };
-
-          // if immediate selection possible, do it; otherwise listen once to gallery:rendered
-          if (!trySelect()) {
-            const onRendered = (ev) => {
-              window.removeEventListener('gallery:rendered', onRendered);
-              setTimeout(() => {
-                if (!trySelect()) {
-                  // fallback navigate to gallery page with hash params
-                  location.href = '/gallery' + _makeGalleryHash({ cat: category, vid: vidId });
-                }
-              }, 80);
-            };
-            window.addEventListener('gallery:rendered', onRendered, { once: true });
-            // safety fallback: after 600ms if nothing happened, navigate
-            setTimeout(() => {
-              window.removeEventListener('gallery:rendered', onRendered);
-              if (!trySelect()) location.href = '/gallery' + _makeGalleryHash({ cat: category, vid: vidId });
-            }, 700);
-          }
-        } else {
-          // not on gallery page -> navigate to gallery with hash params (category + vid)
-          location.href = '/gallery' + _makeGalleryHash({ cat: category, vid: vidId });
-        }
+        // Navigate to /gallery with params. Use location.href so server handles rewrite to gallery.html.
+        const url = '/gallery' + (params.toString() ? ('?' + params.toString()) : '');
+        // Use normal navigation (not Barba-specific). If you want Barba to intercept, use <a> links or let Barba handle it.
+        window.location.href = url;
       });
+
     }
 
     async _loadInitial() {
@@ -473,45 +375,34 @@
       await attachSource(this.layerA, url);
       try { this.layerA.play().catch(()=>{}); } catch(e){}
       this._renderOverlay(meta.title || '', meta.desc || '');
-      // preload next
-      const nextIndex = (this.index + 1) % this.slides.length;
-      const nextUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src)) || '';
-      const preLayer = (this.active === 'A') ? this.layerB : this.layerA;
-      attachSource(preLayer, nextUrl).catch(()=>{});
     }
 
     _renderOverlay(title = '', desc = '') {
       this.bottomOverlay.innerHTML = `
-        <div class="hc-meta" style="pointer-events:auto;cursor:pointer">
+        <div class="hc-meta">
           <div class="hc-title">${escapeHtml(title || '')}</div>
           ${ desc ? `<div class="hc-desc">${escapeHtml(desc)}</div>` : '' }
         </div>
       `;
     }
 
-    async _advance() {
+    async _advanceOnEnd() {
       if (!this.slides.length) return;
       const nextIndex = (this.index + 1) % this.slides.length;
       const meta = this.slides[nextIndex];
       if (!meta) return;
-
       const active = this.active === 'A' ? this.layerA : this.layerB;
       const inactive = this.active === 'A' ? this.layerB : this.layerA;
-
       const url = meta.hls || meta.mp4 || meta.src || '';
       await attachSource(inactive, url);
       try { inactive.currentTime = 0; inactive.muted = true; inactive.play().catch(()=>{}); } catch(e){}
-
-      // immediate cut (no transition)
       try { active.pause(); active.currentTime = 0; } catch(e){}
       active.classList.remove('active'); active.classList.add('inactive');
       inactive.classList.remove('inactive'); inactive.classList.add('active');
       this.active = this.active === 'A' ? 'B' : 'A';
       this.index = nextIndex;
-
       this._renderOverlay(meta.title || '', meta.desc || '');
-
-      // preload next-next
+      // prefetch next-next
       const nxt2 = (this.index + 1) % this.slides.length;
       const preUrl = (this.slides[nxt2] && (this.slides[nxt2].hls || this.slides[nxt2].mp4 || this.slides[nxt2].src)) || '';
       const preLayer = (this.active === 'A') ? this.layerB : this.layerA;
@@ -519,10 +410,6 @@
     }
 
     destroy() {
-      try {
-        this.layerA.removeEventListener('ended', this._onEndedBound);
-        this.layerB.removeEventListener('ended', this._onEndedBound);
-      } catch (e) {}
       try { this.layerA.pause(); this.layerB.pause(); } catch(e){}
       destroyHlsForEl(this.layerA);
       destroyHlsForEl(this.layerB);
@@ -541,6 +428,7 @@
       this.progressBar = this.container.querySelector('.progress-bar');
       this.progressBuffer = this.container.querySelector('.progress-buffer');
       this.progressWrap = this.container.querySelector('.progress-wrap');
+      this.galleryOverlay = this.container.querySelector('.bottom-overlay');
       this.playOverlay = this.container.querySelector('.play-overlay');
       this.topOverlay = this.container.querySelector('.top-overlay');
       this.topMuteBtn = this.container.querySelector('.top-overlay .mute-btn');
@@ -548,6 +436,7 @@
 
       this._wireTopControls();
       this.slides = opts.slides || [];
+      this.autoplay = (typeof opts.autoplay === 'boolean') ? opts.autoplay : true;
       this.currentIndex = 0;
       this.front = 'A';
       this.autoplayTimer = null;
@@ -563,8 +452,35 @@
       this._bindProgressInteractions();
 
       // Overlays + mouse idle
+
+
+      // this._idleTimer = null;
+      // this._onMouseMoveBound = this._onMouseMove.bind(this);
+      // const gpArea = this.container.querySelector('.gallery-player') || this.container;
+      // if (gpArea) {
+      //   gpArea.addEventListener('pointermove', this._onMouseMoveBound, { passive: true });
+      //   gpArea.addEventListener('pointerenter', this._onMouseMoveBound, { passive: true });
+      //   gpArea.addEventListener('pointerleave', () => {
+      //     if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
+      //     this._hideOverlays();
+      //   });
+      // }
+      // this._showOverlays();
+      // if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
+      // this._idleTimer = setTimeout(()=> { this._hideOverlays(); this._idleTimer = null; }, MOUSE_IDLE_MS);
+
+
+
       this._idleTimer = null;
-      this._onMouseMoveBound = this._onMouseMove.bind(this);
+      this._onMouseMoveBound = (ev) => {
+        // show overlays on movement
+        this._showOverlays();
+        // reset timer
+        if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
+        this._idleTimer = setTimeout(() => { this._hideOverlays(); this._idleTimer = null; }, OVERLAY_IDLE_MS);
+      };
+
+      // attach to area
       const gpArea = this.container.querySelector('.gallery-player') || this.container;
       if (gpArea) {
         gpArea.addEventListener('pointermove', this._onMouseMoveBound, { passive: true });
@@ -574,11 +490,120 @@
           this._hideOverlays();
         });
       }
-      this._showOverlays();
-      if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
-      this._idleTimer = setTimeout(()=> { this._hideOverlays(); this._idleTimer = null; }, MOUSE_IDLE_MS);
 
-      if (this.slides.length) this.playIndex(0, { autoplayStart: true });
+
+
+
+      // --- Overlay unified behavior (both top-overlay and play-overlay) ---
+      
+      // this._overlayIdleTimer = null;
+      // this._overlayVisible = false;
+      // this._overlayTouchActive = false; // per mobile: stato "risvegliato" da tap
+
+      // // helper: show combined overlays (makes them interactive)
+      // this._showCombinedOverlays = () => {
+      //   try {
+      //     if (this.playOverlay) {
+      //       this.playOverlay.style.display = 'flex';
+      //       this.playOverlay.style.opacity = '1';
+      //       this.playOverlay.classList.remove('animate-out');
+      //     }
+      //     if (this.topOverlay) {
+      //       this.topOverlay.style.display = 'flex';
+      //       this.topOverlay.style.opacity = '1';
+      //       this.topOverlay.classList.add('force-visible');
+      //     }
+      //     // make controls interactive while visible
+      //     if (this.topOverlay) this.topOverlay.style.pointerEvents = 'auto';
+      //     if (this.playOverlay) this.playOverlay.style.pointerEvents = 'auto';
+      //     this._overlayVisible = true;
+      //   } catch (e) { /* ignore */ }
+      // };
+
+      // this._hideCombinedOverlays = () => {
+      //   try {
+      //     // hide visuals but keep buttons accessible only when explicitly active
+      //     if (this.playOverlay) {
+      //       // only hide if not paused/buffering
+      //       if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
+      //         this.playOverlay.style.opacity = '0';
+      //         setTimeout(()=> { try { this.playOverlay.style.display = 'none'; } catch(e){} }, 220);
+      //       }
+      //     }
+      //     if (this.topOverlay) {
+      //       this.topOverlay.style.opacity = '0';
+      //       setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
+      //     }
+      //     // disable pointer events so accidental taps don't trigger controls
+      //     if (this.topOverlay) this.topOverlay.style.pointerEvents = 'none';
+      //     if (this.playOverlay) this.playOverlay.style.pointerEvents = 'none';
+      //     this._overlayVisible = false;
+      //   } catch (e) {}
+      // };
+
+      // // pointermove handler (shows overlays and resets idle timer)
+      // this._onOverlayActivity = (ev) => {
+      //   // on any pointermove -> show and reset idle
+      //   this._showCombinedOverlays();
+      //   if (this._overlayIdleTimer) { clearTimeout(this._overlayIdleTimer); this._overlayIdleTimer = null; }
+      //   this._overlayIdleTimer = setTimeout(() => {
+      //     // on timeout hide overlays unless touch-activated
+      //     if (!this._overlayTouchActive) this._hideCombinedOverlays();
+      //     this._overlayIdleTimer = null;
+      //   }, OVERLAY_IDLE_MS);
+      // };
+
+      // // touch behavior: single tap toggles overlay awake state (mobile)
+      // this._onTouchToggle = (ev) => {
+      //   // prevent simulated mouse move bubbling interfering
+      //   ev.stopPropagation();
+      //   ev.preventDefault();
+      //   // toggle touch active state
+      //   this._overlayTouchActive = !this._overlayTouchActive;
+      //   if (this._overlayTouchActive) {
+      //     // make overlays visible and interactive, schedule hide after timeout
+      //     this._showCombinedOverlays();
+      //     if (this._overlayIdleTimer) { clearTimeout(this._overlayIdleTimer); this._overlayIdleTimer = null; }
+      //     this._overlayIdleTimer = setTimeout(() => {
+      //       this._overlayTouchActive = false;
+      //       this._hideCombinedOverlays();
+      //       this._overlayIdleTimer = null;
+      //     }, OVERLAY_IDLE_MS);
+      //   } else {
+      //     // if turning off, hide immediately
+      //     if (this._overlayIdleTimer) { clearTimeout(this._overlayIdleTimer); this._overlayIdleTimer = null; }
+      //     this._hideCombinedOverlays();
+      //   }
+      // };
+
+      // // Attach events to gallery area
+      // try {
+      //   const gpArea = this.container.querySelector('.gallery-player') || this.container;
+      //   if (gpArea) {
+      //     gpArea.addEventListener('pointermove', this._onOverlayActivity, { passive: true });
+      //     gpArea.addEventListener('pointerenter', this._onOverlayActivity, { passive: true });
+      //     gpArea.addEventListener('pointerleave', () => {
+      //       if (this._overlayIdleTimer) { clearTimeout(this._overlayIdleTimer); this._overlayIdleTimer = null; }
+      //       // hide when leaving pointer only if not touch-activated
+      //       if (!this._overlayTouchActive) this._hideCombinedOverlays();
+      //     });
+
+      //     // handle touch (mobile): a tap toggles overlays awake state
+      //     gpArea.addEventListener('touchstart', (ev) => {
+      //       // treat as toggle: single tap -> wake overlays (interactive) for OVERLAY_IDLE_MS
+      //       // if already awake via pointermove ignore
+      //       if (!this._overlayVisible || !this._overlayTouchActive) {
+      //         this._onTouchToggle(ev);
+      //       }
+      //     }, { passive: false });
+      //   }
+      // } catch (e) { /* ignore */ }
+
+
+      // Only auto-play first slide if allowed (if constructed with autoplay:true)
+      if (this.slides.length && this.autoplay) {
+        this.playIndex(0, { autoplayStart: true });
+      }
       this.resetAutoplay();
       this._attachInteractionListeners();
     }
@@ -594,6 +619,14 @@
           layer.addEventListener('playing', () => this._onPlaying(layer));
           layer.addEventListener('canplay', () => this._onPlaying(layer));
           layer.addEventListener('error', () => this._onPlaying(layer));
+          // when the front layer ends, advance (looping)
+          layer.addEventListener('ended', () => {
+            try {
+              // if user paused (manual), don't auto advance
+              if (this.isManual) return;
+              this.next();
+            } catch (e) {}
+          });
         });
       }
     }
@@ -616,13 +649,35 @@
 
     toggleFullscreen() {
       const el = this.container;
+      // prefer standard API
+      const frontVideo = this._getFrontLayer();
+
+      const enterFs = async () => {
+        try {
+          if (el.requestFullscreen) await el.requestFullscreen();
+          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+          else if (frontVideo && frontVideo.webkitEnterFullscreen) frontVideo.webkitEnterFullscreen(); // iOS fallback
+        } catch (e) { /* ignore */ }
+      };
+
+      const exitFs = async () => {
+        try {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+          // note: no webkitExitFullscreen on video element broadly
+        } catch (e) { /* ignore */ }
+      };
+
       if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-        if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        enterFs();
       } else {
-        if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+        exitFs();
       }
-      setTimeout(()=> this.updateFullscreenButton(), 250);
+
+      // update button state shortly after toggling
+      setTimeout(() => this.updateFullscreenButton(), 300);
     }
+
 
     updateFullscreenButton() {
       const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
@@ -652,7 +707,7 @@
       if (this.playOverlay) {
         this.playOverlay.classList.remove('buffering');
         if (!this._getFrontLayer() || this._getFrontLayer().paused) {
-          // this.playOverlay.classList.add('paused');
+          this.playOverlay.classList.add('paused');
           this.playOverlay.style.display = 'flex';
           this.playOverlay.style.opacity = '1';
         } else {
@@ -778,11 +833,13 @@
       this._syncTitle(meta.title);
       this._flashOverlay();
       this._startProgressLoop();
+
       this._highlightGridItem(i);
       try {
         const grid = document.getElementById('galleryGrid');
         if (!this.isManual) focusGridItem(grid, i);
       } catch (e) {}
+
       const nextIndex = (i + 1) % this.slides.length;
       const inactiveLayer = (this.front === 'A') ? this.layerB : this.layerA;
       const preUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src)) || '';
@@ -862,6 +919,7 @@
       if (!wrap) return;
       let dragging = false; let pointerId = null;
       const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
+
       const updateSeekFromEvent = (ev) => {
         const rect = wrap.getBoundingClientRect();
         const x = ev.clientX - rect.left;
@@ -870,6 +928,7 @@
         const dur = front && front.duration ? front.duration : 0;
         if (dur > 0) { try { front.currentTime = frac * dur; } catch(e){} if (this.progressBar) this.progressBar.style.width = (frac*100) + '%'; }
       };
+
       wrap.addEventListener('pointerdown', (ev) => {
         ev.preventDefault(); ev.stopPropagation();
         dragging = true; pointerId = ev.pointerId; wrap.setPointerCapture?.(pointerId); wrap.classList.add('dragging');
@@ -927,7 +986,9 @@
 
     _showOverlays() {
       if (this.playOverlay) { this.playOverlay.style.display = 'flex'; this.playOverlay.style.opacity = '1'; }
+      if (this.galleryOverlay) { this.galleryOverlay.style.display = 'flex'; this.galleryOverlay.style.opacity = '1'; }
       if (this.topOverlay) { this.topOverlay.style.display = 'flex'; this.topOverlay.style.opacity = '1'; this.topOverlay.classList.add('force-visible'); setTimeout(()=> { try { this.topOverlay.classList.remove('force-visible'); } catch(e){} }, 50); }
+
     }
 
     _hideOverlays() {
@@ -941,10 +1002,6 @@
         this.topOverlay.style.opacity = '0';
         setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
       }
-    }
-
-    _onMouseMove(ev) {
-      this._showOverlays();
     }
 
     _highlightGridItem(index) {
@@ -973,7 +1030,7 @@
     if (!section) return;
     let slides = Array.isArray(HOME_CAROUSEL) && HOME_CAROUSEL.length ? HOME_CAROUSEL.slice() : FEATURED_IDS.map(id => VIDEOS.find(v => v.id === id)).filter(Boolean);
     if (!slides.length) slides.push(...(Array.isArray(VIDEOS) ? VIDEOS.slice(0, Math.min(5, VIDEOS.length)) : []));
-    homeCarousel = new HomeCarousel({ container: section, slides });
+    homeCarousel = new HomeCarousel({ container: section, slides, interval: HOME_AUTOPLAY_INTERVAL_MS });
   }
 
   /* ---------------- Gallery init ---------------- */
@@ -981,7 +1038,17 @@
     const catList = context.querySelector('#categoryList');
     const galleryGrid = context.querySelector('#galleryGrid');
     const section = context.querySelector('#galleryCarouselSection');
+
     if (!catList || !galleryGrid || !section) return;
+
+    // Allow autoplay only when the path is exactly /gallery or /gallery/ (no query/hash)
+    const pathIsPlainGallery = (() => {
+      try {
+        const p = location.pathname.replace(/\/+$/, ''); // rimuove slash finali
+        return p === '/gallery' || p === '';
+      } catch (e) { return false; }
+    })();
+
 
     catList.innerHTML = '';
     CATEGORIES.forEach((c, idx) => {
@@ -992,20 +1059,23 @@
       btn.setAttribute('data-category', c);
       btn.setAttribute('role', 'tab');
       btn.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
+
       btn.addEventListener('click', () => {
         catList.querySelectorAll('button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
         btn.classList.add('active');
         btn.setAttribute('aria-selected','true');
         renderCategory(c);
+        // update URL (replace state)
+        updateURLForCategory(c, false);
       });
+
       li.appendChild(btn);
       catList.appendChild(li);
     });
 
+    // renderCategory is local to initGallery scope
     async function renderCategory(category) {
       const slides = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
-      const newHash = `#cat=${encodeURIComponent(category)}`;
-      history.replaceState({}, '', newHash);
       if (!slides.length) {
         if (galleryPlayer) galleryPlayer.destroy();
         const layerA = section.querySelector('.gallery-video.layer-a');
@@ -1015,8 +1085,6 @@
         const titleEl = section.querySelector('#galleryTitle');
         if (titleEl) titleEl.textContent = 'Nessun video';
         galleryGrid.innerHTML = `<div style="padding:28px;color:var(--muted);text-align:center">Nessun video per la categoria "${escapeHtml(category)}"</div>`;
-        // dispatch rendered event anyway so listeners don't wait forever
-        window.dispatchEvent(new CustomEvent('gallery:rendered', { detail: { category, slides: [] } }));
         return;
       }
 
@@ -1026,91 +1094,60 @@
         galleryPlayer.isManual = false;
         galleryPlayer.resetAutoplay();
       } else {
-        galleryPlayer = new GalleryPlayer({ container: section, slides });
+        galleryPlayer = new GalleryPlayer({ container: section, slides, autoplay: pathIsPlainGallery });
       }
 
       if (galleryPlayer) galleryPlayer.updateMuteButton();
       populateGrid(galleryGrid, category);
 
-      // dispatch event after populate so external listeners can react
-      // setTimeout(() => {
-      //   window.dispatchEvent(new CustomEvent('gallery:rendered', { detail: { category, slides } }));
-      //   focusGridItem(galleryGrid, 0);
-      // }, 60);
-
-      // dispatch evento di render per chi ascolta (es. home)
-      window.dispatchEvent(new Event('gallery:rendered'));
-
-      // prova a selezionare video/categoria se presente hash
-      setTimeout(() => {
-        const hashObj = _parseGalleryHash();
-        // se c'è una categoria nell'hash e non corrisponde -> selezionala
-        if (hashObj.cat && hashObj.cat !== category) {
-          // se trovi il pulsante categoria, cliccalo (renderCategory verrà rieseguita)
-          const btn = document.querySelector(`#categoryList button[data-category="${hashObj.cat}"]`);
-          if (btn) {
-            btn.click();
-            return;
-          }
-        }
-
-        // se abbiamo un vid e siamo nella categoria giusta -> prova a trovare ed avviare
-        if (hashObj.vid) {
-          // cerca l'elemento nella griglia
-          const item = galleryGrid.querySelector(`[data-id="${hashObj.vid}"]`);
-          if (item) {
-            // il click sull'item aggiornerà la UI e l'URL (vedi modifica precedente)
-            item.click();
-          } else {
-            // fallback: se VIDEOS contiene l'id, avvia direttamente in player (se presente)
-            const idx = Array.isArray(VIDEOS) ? VIDEOS.findIndex(v => v.id === hashObj.vid) : -1;
-            if (idx >= 0 && window.galleryPlayer) {
-              galleryPlayer.playIndex(idx, { userTriggered: true });
-            }
-          }
-        }
-      }, 30);
-
+      // setTimeout(() => focusGridItem(galleryGrid, 0), 60);
     }
 
-    // initial category selection considering hash parameters
-    const hash = _parseGalleryHash();
-    const preferredCategory = hash.cat || (catList.querySelector('button.active')?.getAttribute('data-category')) || CATEGORIES[0];
-
-    // focus UI
+    // initial category
+    const activeBtn = catList.querySelector('button.active');
+    const initialCategory = activeBtn ? (activeBtn.getAttribute('data-category') || CATEGORIES[0]) : CATEGORIES[0];
     setTimeout(() => {
-      const btnToFocus = catList.querySelector(`button[data-category="${preferredCategory}"]`) || catList.querySelector('button');
+      const btnToFocus = catList.querySelector(`button[data-category="${initialCategory}"]`) || catList.querySelector('button');
       if (btnToFocus) { try { btnToFocus.focus({ preventScroll: true }); } catch(e) { btnToFocus.focus(); } }
     }, 40);
 
-    renderCategory(preferredCategory);
+    // render initial category (keeps previous code)
+    renderCategory(initialCategory);
 
-    // if hash asks for a specific video, wait for gallery:rendered and play it
-    if (hash.vid) {
-      const tryPlayHashVid = () => {
-        const grid = document.getElementById('galleryGrid');
-        if (!grid) return false;
-        const item = grid.querySelector(`[data-id="${hash.vid}"]`);
-        if (item) {
-          item.click();
-          return true;
-        }
-        const idx = (Array.isArray(VIDEOS) ? VIDEOS.findIndex(v => v.id === hash.vid) : -1);
-        if (idx >= 0 && window.galleryPlayer) {
-          galleryPlayer.playIndex(idx, { userTriggered: true });
-          return true;
-        }
-        return false;
-      };
-      // If not immediately available, listen to gallery:rendered
-      if (!tryPlayHashVid()) {
-        const onRendered = () => {
-          window.removeEventListener('gallery:rendered', onRendered);
-          setTimeout(() => { tryPlayHashVid(); }, 40);
-        };
-        window.addEventListener('gallery:rendered', onRendered);
+    // Now handle deep-link from URL: ?cat=...&vid=...
+    (function handleDeepLink() {
+      const q = parseQueryParams(location.search);
+      // If using hash style (#cat=..&vid=..) we also accept that:
+      if (!q.cat && location.hash && location.hash.startsWith('#')) {
+        const qh = parseQueryParams(location.hash.replace(/^#/, '?'));
+        if (qh.cat) q.cat = qh.cat;
+        if (qh.vid) q.vid = qh.vid;
       }
-    }
+
+      if (!q.cat && !q.vid) return;
+
+      // If a cat provided and different from current active -> render it
+      const currentActiveBtn = catList.querySelector('button.active');
+      const currentCat = currentActiveBtn ? currentActiveBtn.getAttribute('data-category') : null;
+
+      const wantCat = q.cat || currentCat || initialCategory;
+
+      // Render desired category (this will create galleryPlayer and grid)
+      // If it's already the active category, renderCategory(wantCat) will just re-render grid.
+      renderCategory(wantCat);
+
+      // After a short delay (to allow DOM render), find the vid and play it
+      setTimeout(() => {
+        if (!q.vid || !galleryPlayer) return;
+        // find index in current slides
+        const idx = galleryPlayer.slides ? galleryPlayer.slides.findIndex(s => s.id === q.vid) : -1;
+        if (idx >= 0) {
+          galleryPlayer.playIndex(idx, { userTriggered: true });
+          // update URL without reloading to reflect current playback
+          try { history.replaceState({}, '', '/gallery?cat=' + encodeURIComponent(wantCat) + '&vid=' + encodeURIComponent(q.vid)); } catch (e) {}
+        }
+      }, 140);
+    })();
   }
 
   /* ---------------- populateGrid (preview logic) ---------------- */
@@ -1176,25 +1213,142 @@
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         stopAllPreviewsExcept(null);
-
-        // aggiorna la URL per riflettere la selezione
-        try {
-          const newHash = _makeGalleryHash({ cat: category, vid: v.id });
-          history.replaceState({}, '', '/gallery' + newHash);
-        } catch (e) {}
-
         if (galleryPlayer) {
           galleryPlayer.playIndex(idx, { userTriggered: true });
+          // update URL to reflect this video
+          updateURLForVideo(v.category, v.id, true);
+        } else {
+          // if galleryPlayer not ready yet, still update URL
+          updateURLForVideo(v.category, v.id, true);
         }
         focusGridItem(container, idx);
+
+        try {
+          const q = new URLSearchParams();
+          q.set('cat', category || '');
+          q.set('vid', v.id || '');
+          history.replaceState({}, '', '/gallery?' + q.toString());
+        } catch (e) {}
+
       });
 
+      // expose data-id
       btn.setAttribute('data-id', v.id);
+
       container.appendChild(btn);
     });
 
     setTimeout(() => focusGridItem(container, 0), 40);
   }
+
+  /* ---------------- Route / URL -> UI sync ---------------- */
+
+  function buildGalleryURL(cat, vid) {
+    const params = new URLSearchParams();
+    if (cat) params.set('cat', cat);
+    if (vid) params.set('vid', vid);
+    return '/gallery' + (params.toString() ? '?' + params.toString() : '');
+  }
+  function updateURLForVideo(cat, vid, push = false) {
+    const newUrl = buildGalleryURL(cat, vid);
+    try {
+      if (push) history.pushState({}, '', newUrl);
+      else history.replaceState({}, '', newUrl);
+    } catch (e) {}
+  }
+  function updateURLForCategory(cat, push = false) {
+    const newUrl = buildGalleryURL(cat, '');
+    try {
+      if (push) history.pushState({}, '', newUrl);
+      else history.replaceState({}, '', newUrl);
+    } catch (e) {}
+  }
+
+  function waitFor(fn, interval = 60, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const tick = () => {
+        try {
+          if (fn()) return resolve();
+        } catch (e) {}
+        if (Date.now() - start > timeout) return reject(new Error('waitFor timeout'));
+        setTimeout(tick, interval);
+      };
+      tick();
+    });
+  }
+
+  function parseRoute() {
+    const q = new URLSearchParams(location.search || '');
+    let cat = q.get('cat') || '';
+    let vid = q.get('vid') || '';
+
+    if (!cat && location.hash) {
+      const raw = (location.hash || '').replace(/^#/, '');
+      const h = new URLSearchParams(raw);
+      cat = cat || h.get('cat') || '';
+      vid = vid || h.get('vid') || '';
+    }
+    return { cat, vid };
+  }
+
+  function parseQueryParams(search) {
+    const obj = {};
+    try {
+      const sp = new URLSearchParams(search || location.search || location.hash.replace(/^#\?/, '?') || '');
+      for (const [k, v] of sp.entries()) obj[k] = v;
+    } catch (e) {}
+    return obj;
+  }
+
+  async function navigateFromURL() {
+    const path = location.pathname || '/';
+    if (path === '/' || path === '/index.html') return;
+
+    const { cat, vid } = parseRoute();
+
+    if (path.startsWith('/gallery')) {
+      if (cat) {
+        const catBtn = document.querySelector(`#categoryList button[data-category="${cat}"]`) ||
+                       Array.from(document.querySelectorAll('#categoryList button')).find(b => b.getAttribute('data-category') === cat);
+        if (catBtn) {
+          // click triggers renderCategory and updates UI
+          try { catBtn.click(); } catch (e) {}
+        } else {
+          // nothing: let gallery init default
+        }
+      } else {
+        const btn = document.querySelector('#categoryList button');
+        if (btn) try { btn.click(); } catch (e) {}
+      }
+
+      try {
+        await waitFor(() => window.galleryPlayer && Array.isArray(window.galleryPlayer.slides) && window.galleryPlayer.slides.length > 0, 60, 5000);
+      } catch (err) {
+        return;
+      }
+
+      try {
+        const muted = readMute();
+        if (galleryPlayer.layerA) galleryPlayer.layerA.muted = !!muted;
+        if (galleryPlayer.layerB) galleryPlayer.layerB.muted = !!muted;
+      } catch (e) {}
+
+      if (vid) {
+        const idx = galleryPlayer.slides.findIndex(s => String(s.id) === String(vid));
+        if (idx >= 0) {
+          setTimeout(() => {
+            try { galleryPlayer.playIndex(idx, { userTriggered: true }).catch?.(()=>{}); } catch (e) {}
+          }, 80);
+          return;
+        }
+      }
+
+      setTimeout(() => { try { galleryPlayer.playIndex(0).catch?.(()=>{}); } catch (e) {} }, 80);
+    }
+  }
+
+  window.addEventListener('popstate', () => { navigateFromURL().catch(()=>{}); });
 
   /* ---------------- RUN / BARBA ---------------- */
   function runInits(context = document) {
@@ -1202,6 +1356,8 @@
     if (context.querySelector && context.querySelector('#carouselSection')) initHome(context);
     if (context.querySelector && context.querySelector('#galleryCarouselSection')) initGallery(context);
     if (context.querySelector && context.querySelector('.facts')) initAbout && initAbout(context);
+    // ensure initial route once gallery is inited
+    setTimeout(() => navigateFromURL().catch(()=>{}), 120);
   }
 
   function initBarbaSafe(runInitial) {
@@ -1237,7 +1393,6 @@
     } catch (e) { runInitial(document); }
   }
 
-  /* ---------------- START ---------------- */
   function start() {
     if (window.__APP_INITIALIZED__) return;
     window.__APP_INITIALIZED__ = true;
