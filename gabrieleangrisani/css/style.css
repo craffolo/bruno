@@ -269,16 +269,29 @@ body.no-scroll{overflow:hidden}
   z-index: 6; /* visibile sopra gli altri elementi */
 }
 
-/* ------ GALLERY PLAYER: progress bar + buffer + click-to-play/pause UI ------- */
-.gallery-player { position: relative; width: 100%; height: 100%; display:block; cursor: pointer; }
-.gallery-player .gallery-video { display:block; width:100%; height:100%; object-fit:cover; background:#000; }
-.gallery-player .layer-a, .gallery-player .layer-b { position:absolute; inset:0; width:100%; height:100%; z-index:1; top:0; left:0; }
-.gallery-player .layer-a { z-index:2; opacity:1; pointer-events:auto; }
-.gallery-player .layer-b { z-index:1; opacity:0; pointer-events:none; }
+/* gallery player */
+.gallery-player{position:relative;width:100%;height:100%;display:block;cursor:pointer}
+.gallery-player .gallery-video{display:block;width:100%;height:100%;object-fit:cover;background:#000}
+.gallery-player .layer-a,.gallery-player .layer-b{position:absolute;inset:0;width:100%;height:100%;top:0;left:0}
+.gallery-player .layer-a{z-index:2;opacity:1;pointer-events:auto}
+.gallery-player .layer-b{z-index:1;opacity:0;pointer-events:none}
 
-/* ====================== TOP OVERLAY: stacked + show/hide like bottom overlay ====================== */
+/* unified overlay wrapper */
+.gallery-overlay{
+  position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .22s ease; z-index:10000;
+  display:flex; flex-direction:column; justify-content:space-between;
+}
+.gallery-overlay.visible{opacity:1}
+.gallery-overlay .top-overlay, .gallery-overlay .bottom-overlay, .gallery-overlay .play-overlay{pointer-events:none}
 
-/* base: hidden by default (opacity for nice transitions) */
+/* inner elements must be interactive */
+.gallery-overlay .top-overlay .top-btn,
+.gallery-overlay .bottom-overlay .control-btn,
+.gallery-overlay .bottom-overlay .bottom-overlay-text,
+.gallery-overlay .play-overlay,
+.gallery-overlay .progress-wrap{pointer-events:auto}
+
+/* top overlay */
 .top-overlay {
   position: absolute;
   top: 12px;
@@ -295,7 +308,6 @@ body.no-scroll{overflow:hidden}
   will-change: opacity, transform;
 }
 
-/* visible states (same idea as .play-overlay / .carousel-overlay) */
 .top-overlay.force-visible,
 .top-overlay.animate-in,
 .top-overlay.paused,
@@ -305,34 +317,11 @@ body.no-scroll{overflow:hidden}
   pointer-events: none; /* wrapper still non-interactive; buttons receive events */
 }
 
-/* animate-out helper */
 .top-overlay.animate-out {
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
 }
-
-/* buttons inside top overlay */
-/* .top-overlay .top-btn {
-  pointer-events: auto;
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255,255,255,0.04);
-  color: #fff;
-  width: 44px;
-  height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  transition: transform .18s ease, box-shadow .22s ease, background .18s;
-}
-.top-overlay .top-btn:hover,
-.top-overlay {
-  transform: translateY(-3px);
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
-  box-shadow: 0 12px 36px rgba(var(--accent-rgb), 0.09);
-  outline: none;
-} */
 
 .top-overlay .top-btn{
   pointer-events: auto;
@@ -370,81 +359,20 @@ body.no-scroll{overflow:hidden}
 }
 
 /* ------------ bottom overlay: play/pause + spinner ------------ */
-/* .gallery-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(180deg,rgba(0,0,0,0.05),rgba(0,0,0,0.6));opacity:0;transition:opacity .22s;pointer-events:none} */
-.bottom-overlay{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;pointer-events:none;gap:12px;width:100%;z-index:11}
-.bottom-overlay .control-btn,.bottom-overlay .bottom-overlay-text{pointer-events:auto}
-.bottom-overlay-text{flex:1;text-align:center}
-.bottom-overlay-text a{display:inline-block;text-decoration:none;color:inherit;padding:8px 18px;border-radius:8px;border:1px solid transparent;transition:all .22s}
-.bottom-overlay-text a:hover{
-  background: rgba(255,255,255,0.02);
-  box-shadow: 0 10px 30px rgba(255,221,85,0.12);
-  transform: translateY(-2px);
-}
+.bottom-overlay{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;gap:12px;width:100%;z-index:11;pointer-events:none;opacity:0;transition:opacity .22s}
+.gallery-overlay.visible .bottom-overlay{opacity:1}
+.bottom-overlay .control-btn{pointer-events:auto}
+.bottom-overlay .bottom-overlay-text{flex:1;text-align:center;pointer-events:auto}
+.bottom-overlay-text a{display:inline-block;text-decoration:none;color:inherit;padding:6px 12px;border-radius:8px;transition:all .18s}
+.bottom-overlay-text a:hover{background: rgba(255,255,255,0.02);box-shadow:0 8px 30px rgba(255,221,85,0.08);transform:translateY(-2px)}
 .bottom-overlay-title{font-size:2.6rem;text-transform:uppercase;letter-spacing:-1px;margin-bottom:6px}
 
-/*  progress & buffer bar (with hover bloom)  */
-.progress-wrap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 6px; /* leggermente più alto per migliore hit-area */
-  background: rgba(255,255,255,0.03);
-  z-index: 30;
-  overflow: visible; /* allow bloom to overflow */
-  pointer-events: auto;
-  transition: height 220ms cubic-bezier(.2,.9,.25,1);
-  border-radius: 999px;
-  display: block;
-}
-
-/* small invisible hitpad above the bar to make hover comfortable on mobile/desktop */
-.progress-wrap::before{
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: 10px;
-  pointer-events: none;
-}
-
-/* buffer sits under the progress visual */
-.progress-buffer {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%) scaleY(1);
-  height: 4px;
-  width: 0%;
-  background: rgba(255,255,255,0.12); /* colore del buffer (più chiaro) */
-  transition: width 220ms linear, transform 220ms ease;
-  z-index: 31;
-  border-radius: 999px;
-}
-
-/* progress bar sits above buffer and visually grows on hover */
-.progress-bar {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform-origin: left center;
-  transform: translateY(-50%) scaleY(1);
-  height: 6px;
-  width: 0%;
-  background: linear-gradient(90deg, var(--accent), rgba(219,67,56,0.85));
-  transition: width 120ms linear, transform 260ms cubic-bezier(.22,.9,.3,1), box-shadow 240ms ease;
-  will-change: width, transform;
-  z-index: 32;
-  border-radius: 999px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
-}
-
-/* HOVER: bloom effect — increase wrap height slightly and scaleY the bar (grows upward),
-   also slightly increase buffer height for visual feedback */
-.progress-wrap:hover {
-  height: 10px;
-}
+/* progress */
+.progress-wrap{position:absolute;left:0;right:0;bottom:0;height:6px;background:rgba(255,255,255,0.03);z-index:30;overflow:visible;pointer-events:auto;border-radius:999px}
+.progress-buffer{position:absolute;left:0;top:50%;transform:translateY(-50%);height:4px;width:0;background:rgba(255,255,255,0.12);transition:width .22s linear;border-radius:999px;z-index:31}
+.progress-bar{position:absolute;left:0;top:50%;transform:translateY(-50%);height:6px;width:0;background:linear-gradient(90deg,var(--accent),rgba(219,67,56,0.85));transition:width .12s linear;z-index:32;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,0.45)}
+.progress-wrap:hover{height:10px}
+.progress-wrap.dragging{height:12px}
 .progress-wrap:hover .progress-bar {
   transform: translateY(-50%) scaleY(1.45);
   box-shadow: 0 12px 32px rgba(var(--accent-rgb), 0.14);
@@ -454,100 +382,13 @@ body.no-scroll{overflow:hidden}
   height: 6px;
 }
 
-/* Make the bar corner a little more round on hover */
-.progress-wrap:hover .progress-bar { border-radius: 999px; }
-
-/* pointer cursor while hovering progress area */
-.progress-wrap:hover { cursor: pointer; }
-
-/* small kit: when dragging (JS can add .dragging on wrap), make feedback stronger */
-.progress-wrap.dragging { height: 12px; }
-.progress-wrap.dragging .progress-bar { transform: translateY(-50%) scaleY(1.6); box-shadow: 0 16px 44px rgba(var(--accent-rgb),0.18); }
-
-/* ensure the progress bar still sits above gallery overlays */
-.carousel .progress-wrap { z-index: 40; }
 
 /* ---------- Overlay icons centered & aligned (forced absolute centering) ---------- */
-.play-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 220ms ease;
-}
-
-/* center icons absolutely to avoid any text/layout shift differences */
-.play-overlay .icon-play,
-.play-overlay .icon-pause,
-.play-overlay .buffer-spinner {
-  position: absolute;                 /* IMPORTANT: absolute centering */
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.95);
-  transform-origin: center center;
-  display: block !important;          /* ensure not hidden by other rules */
-  color: rgba(255,255,255,0.95);
-  filter: drop-shadow(0 10px 30px rgba(0,0,0,0.6));
-  transition: transform 420ms cubic-bezier(.22,.9,.3,1), opacity 320ms ease;
-  opacity: 0;
-  width: auto;
-  height: auto;
-}
-
-/* spinner specifics (keeps animation) */
-.buffer-spinner {
-  width: 44px;
-  height: 44px;
-  opacity: 0;
-}
-.buffer-spinner .spinner-head {
-  stroke: currentColor;
-  stroke-linecap: round;
-  animation: spinner-rot 1s linear infinite;
-}
-
-/* overlay visible states */
-.play-overlay.paused,
-.play-overlay.buffering,
-.play-overlay.animate-in {
-  opacity: 1;
-}
-
-/* show pause icon when paused (persist until play) */
-.play-overlay.paused .icon-pause {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-  z-index: 3;
-}
-
-/* hide play icon when paused */
-.play-overlay.paused .icon-play {
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.9);
-  z-index: 2;
-}
-
-/* when buffering show spinner and hide icons */
-.play-overlay.buffering .buffer-spinner {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-  z-index: 4;
-}
-.play-overlay.buffering .icon-play,
-.play-overlay.buffering .icon-pause {
-  opacity: 0;
-}
-
-/* animate-in shows a transient play icon (zoom+fade) */
-.play-overlay.animate-in .icon-play {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1.05);
-  z-index: 5;
-}
+/* play overlay */
+.play-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .18s}
+.gallery-overlay.visible .play-overlay{opacity:1}
+.play-overlay .icon-play,.play-overlay .icon-pause,.play-overlay .buffer-spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:block;color:rgba(255,255,255,0.95);filter:drop-shadow(0 10px 30px rgba(0,0,0,0.6))}
+.play-overlay.paused{opacity:1}
 
 /* ---------------- Grid thumbnails: blend into background + glow on hover ---------------- */
 /* ===== gallery grid thumbnails: poster + preview styles ===== */

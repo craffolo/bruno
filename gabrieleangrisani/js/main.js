@@ -1,13 +1,9 @@
 // js/main.js
 (() => {
   /* ---------------- CONFIG / TIMINGS ---------------- */
-  const HOME_AUTOPLAY_INTERVAL_MS = 5000;     // legacy (non più usato se autoplay by end)
-  const GALLERY_AUTOPLAY_INTERVAL_MS = 15000; // autoplay gallery player (usato se non manuale)
+  const GALLERY_AUTOPLAY_INTERVAL_MS = 10000; // autoplay gallery player (usato se non manuale)
   const SLIDE_CHANGE_OVERLAY_MS = 1500;
-  const PLAY_TRANSIENT_MS = 500;
   const MOUSE_IDLE_MS = 2000; // per gallery overlay
-  // overlay idle timeout (ms) — dopo quanto nascondere overlay se il mouse non si muove
-  const OVERLAY_IDLE_MS = 2000;
 
   /* ---------------- DATA (esempio) ---------------- */
   const HOME_CAROUSEL = (typeof window !== 'undefined' && window.HOME_CAROUSEL) ? window.HOME_CAROUSEL : [
@@ -181,7 +177,7 @@
   function readMute() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
   function writeMute(v) { try { localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) {} }
 
-  /* ---------------- HLS management (centralized) ---------------- */
+  /* HLS management (centralized) */
   const _hlsMap = new Map();
   function _hlsKeyFor(el) {
     if (!el) return null;
@@ -198,13 +194,11 @@
       }
     } catch (e) {}
   }
-
   function attachSource(videoEl, url) {
     return new Promise((resolve) => {
       if (!videoEl) return resolve();
       destroyHlsForEl(videoEl);
-      if (typeof url !== 'string' || !url) return resolve();
-
+      if (!url || typeof url !== 'string') return resolve();
       const isManifest = url.trim().toLowerCase().endsWith('.m3u8');
       const key = _hlsKeyFor(videoEl);
 
@@ -227,7 +221,6 @@
         try { videoEl.removeEventListener('canplay', onCan); } catch (e) {}
         resolve();
       };
-
       if (videoEl.readyState >= 3) return resolve();
       videoEl.addEventListener('canplay', onCan);
       setTimeout(() => { try { videoEl.removeEventListener('canplay', onCan); } catch(e){}; resolve(); }, 4000);
@@ -257,7 +250,7 @@
     }
   }
 
-  /* ---------------- small focus helper for grid items ---------------- */
+  /* focus helper */
   function focusGridItem(container, index = 0) {
     if (!container) return;
     const items = Array.from(container.querySelectorAll('.grid-item'));
@@ -270,8 +263,39 @@
     try { target.focus({ preventScroll: true }); } catch (e) { try { target.focus(); } catch (e) {} }
   }
 
-  let homeCarousel = null;
-  let galleryPlayer = null;
+  /* ---------------- URL / routing helpers ---------------- */
+  function parseGalleryHash() {
+    // Accept multiple formats:
+    // "#Category/VideoId", "#category=Cat&video=Id", "#Category", "#video=Id"
+    const raw = (location.hash || '').replace(/^#/, '');
+    if (!raw) return { category: null, video: null };
+    // try "Category/VideoId"
+    if (raw.includes('/')) {
+      const [category, ...rest] = raw.split('/');
+      const video = rest.join('/');
+      return { category: decodeURIComponent(category || '') || null, video: decodeURIComponent(video || '') || null };
+    }
+    // try query style "category=...&video=..."
+    if (raw.includes('=')) {
+      const params = new URLSearchParams(raw);
+      return { category: params.get('category') || null, video: params.get('video') || params.get('vid') || null };
+    }
+    // try "Category" alone or "video:ID"
+    if (raw.includes(':')) {
+      const [k, v] = raw.split(':');
+      if (k.toLowerCase() === 'video' || k.toLowerCase() === 'vid') return { category: null, video: decodeURIComponent(v || '') || null };
+      return { category: decodeURIComponent(k || '') || null, video: decodeURIComponent(v || '') || null };
+    }
+    // fallback: treat as category or video (try to detect video id presence)
+    const single = decodeURIComponent(raw);
+    // if there's a video with this id, prefer it
+    if (Array.isArray(VIDEOS) && VIDEOS.find(v => v.id === single)) return { category: null, video: single };
+    return { category: single, video: null };
+  }
+
+  function isMobileDevice() {
+    return ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent);
+  }
 
   /* ---------------- Menu ---------------- */
   function initMenu(context = document) {
@@ -312,7 +336,6 @@
     constructor(opts) {
       this.container = opts.container;
       this.slides = opts.slides || [];
-      this.interval = opts.interval || HOME_AUTOPLAY_INTERVAL_MS;
       this.layerA = this.container.querySelector('.layer-a');
       this.layerB = this.container.querySelector('.layer-b');
       this.bottomOverlay = this.container.querySelector('.home-carousel-bottom') || null;
@@ -341,30 +364,19 @@
         this.slides = VIDEOS.slice(0, Math.min(5, VIDEOS.length));
       }
       if (this.slides.length) this._loadInitial();
+      // home advances WHEN video ends (listen to ended)
+      this.layerA.addEventListener('ended', () => this._advanceOnEnd());
+      this.layerB.addEventListener('ended', () => this._advanceOnEnd());
 
-      // Autoplay by video end instead of fixed interval:
-      // attach ended event on active layer to advance.
-      const handleEnded = () => this._advanceOnEnd();
-      this.layerA.addEventListener('ended', handleEnded);
-      this.layerB.addEventListener('ended', handleEnded);
-
-      // make overlay clickable -> load gallery select category and play video
+      // overlay click -> navigate to gallery + category/video hash
       this.bottomOverlay.addEventListener('click', (e) => {
         e.stopPropagation();
         const meta = this.slides[this.index];
         if (!meta) return;
-
-        // Build query params
-        const params = new URLSearchParams();
-        if (meta.category) params.set('cat', meta.category);
-        if (meta.galleryId) params.set('vid', meta.galleryId);
-
-        // Navigate to /gallery with params. Use location.href so server handles rewrite to gallery.html.
-        const url = '/gallery' + (params.toString() ? ('?' + params.toString()) : '');
-        // Use normal navigation (not Barba-specific). If you want Barba to intercept, use <a> links or let Barba handle it.
-        window.location.href = url;
+        const targetHash = meta.galleryId ? `#${encodeURIComponent(meta.category || '')}/${encodeURIComponent(meta.galleryId)}` : `#${encodeURIComponent(meta.category || '')}`;
+        // navigate to gallery route — let router / caddy handle pretty urls
+        location.href = '/gallery' + targetHash;
       });
-
     }
 
     async _loadInitial() {
@@ -402,7 +414,7 @@
       this.active = this.active === 'A' ? 'B' : 'A';
       this.index = nextIndex;
       this._renderOverlay(meta.title || '', meta.desc || '');
-      // prefetch next-next
+      // prefetch next
       const nxt2 = (this.index + 1) % this.slides.length;
       const preUrl = (this.slides[nxt2] && (this.slides[nxt2].hls || this.slides[nxt2].mp4 || this.slides[nxt2].src)) || '';
       const preLayer = (this.active === 'A') ? this.layerB : this.layerA;
@@ -428,15 +440,15 @@
       this.progressBar = this.container.querySelector('.progress-bar');
       this.progressBuffer = this.container.querySelector('.progress-buffer');
       this.progressWrap = this.container.querySelector('.progress-wrap');
-      this.galleryOverlay = this.container.querySelector('.bottom-overlay');
       this.playOverlay = this.container.querySelector('.play-overlay');
       this.topOverlay = this.container.querySelector('.top-overlay');
+      this.bottomOverlay = this.container.querySelector('.bottom-overlay');
+      this.galleryOverlay = this.container.querySelector('.gallery-overlay'); // unified overlay container
+
       this.topMuteBtn = this.container.querySelector('.top-overlay .mute-btn');
       this.topFsBtn = this.container.querySelector('.top-overlay .fs-btn');
 
-      this._wireTopControls();
       this.slides = opts.slides || [];
-      this.autoplay = (typeof opts.autoplay === 'boolean') ? opts.autoplay : true;
       this.currentIndex = 0;
       this.front = 'A';
       this.autoplayTimer = null;
@@ -446,166 +458,109 @@
       this._pauseTimeoutId = null;
       this._seeking = false;
 
+      // overlay idle management
+      this._overlayVisible = false;
+      this._overlayTimer = null;
+      this._onMouseMoveBound = this._onMouseMove.bind(this);
+      this._onTouchTapBound = this._onTouchTap.bind(this);
+
       this._setupLayers();
+      this._wireTopControls();
       this._wireControls();
       this._bindClickToToggle();
       this._bindProgressInteractions();
 
-      // Overlays + mouse idle
+      // DON'T autoplay here — initGallery decides whether to start playback
+      // show overlays briefly
+      this._ensureUnifiedOverlay();
+      this._showGalleryOverlayTransient();
 
-
-      // this._idleTimer = null;
-      // this._onMouseMoveBound = this._onMouseMove.bind(this);
-      // const gpArea = this.container.querySelector('.gallery-player') || this.container;
-      // if (gpArea) {
-      //   gpArea.addEventListener('pointermove', this._onMouseMoveBound, { passive: true });
-      //   gpArea.addEventListener('pointerenter', this._onMouseMoveBound, { passive: true });
-      //   gpArea.addEventListener('pointerleave', () => {
-      //     if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
-      //     this._hideOverlays();
-      //   });
-      // }
-      // this._showOverlays();
-      // if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
-      // this._idleTimer = setTimeout(()=> { this._hideOverlays(); this._idleTimer = null; }, MOUSE_IDLE_MS);
-
-
-
-      this._idleTimer = null;
-      this._onMouseMoveBound = (ev) => {
-        // show overlays on movement
-        this._showOverlays();
-        // reset timer
-        if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
-        this._idleTimer = setTimeout(() => { this._hideOverlays(); this._idleTimer = null; }, OVERLAY_IDLE_MS);
-      };
-
-      // attach to area
+      // pointer handlers for overlay show/hide
       const gpArea = this.container.querySelector('.gallery-player') || this.container;
       if (gpArea) {
         gpArea.addEventListener('pointermove', this._onMouseMoveBound, { passive: true });
         gpArea.addEventListener('pointerenter', this._onMouseMoveBound, { passive: true });
-        gpArea.addEventListener('pointerleave', () => {
-          if (this._idleTimer) { clearTimeout(this._idleTimer); this._idleTimer = null; }
-          this._hideOverlays();
-        });
+        gpArea.addEventListener('pointerleave', () => { this._startOverlayHideTimer(); });
+        // mobile tap
+        gpArea.addEventListener('touchend', this._onTouchTapBound, { passive: true });
       }
+    }
 
-
-
-
-      // --- Overlay unified behavior (both top-overlay and play-overlay) ---
-      
-      // this._overlayIdleTimer = null;
-      // this._overlayVisible = false;
-      // this._overlayTouchActive = false; // per mobile: stato "risvegliato" da tap
-
-      // // helper: show combined overlays (makes them interactive)
-      // this._showCombinedOverlays = () => {
-      //   try {
-      //     if (this.playOverlay) {
-      //       this.playOverlay.style.display = 'flex';
-      //       this.playOverlay.style.opacity = '1';
-      //       this.playOverlay.classList.remove('animate-out');
-      //     }
-      //     if (this.topOverlay) {
-      //       this.topOverlay.style.display = 'flex';
-      //       this.topOverlay.style.opacity = '1';
-      //       this.topOverlay.classList.add('force-visible');
-      //     }
-      //     // make controls interactive while visible
-      //     if (this.topOverlay) this.topOverlay.style.pointerEvents = 'auto';
-      //     if (this.playOverlay) this.playOverlay.style.pointerEvents = 'auto';
-      //     this._overlayVisible = true;
-      //   } catch (e) { /* ignore */ }
-      // };
-
-      // this._hideCombinedOverlays = () => {
-      //   try {
-      //     // hide visuals but keep buttons accessible only when explicitly active
-      //     if (this.playOverlay) {
-      //       // only hide if not paused/buffering
-      //       if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
-      //         this.playOverlay.style.opacity = '0';
-      //         setTimeout(()=> { try { this.playOverlay.style.display = 'none'; } catch(e){} }, 220);
-      //       }
-      //     }
-      //     if (this.topOverlay) {
-      //       this.topOverlay.style.opacity = '0';
-      //       setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
-      //     }
-      //     // disable pointer events so accidental taps don't trigger controls
-      //     if (this.topOverlay) this.topOverlay.style.pointerEvents = 'none';
-      //     if (this.playOverlay) this.playOverlay.style.pointerEvents = 'none';
-      //     this._overlayVisible = false;
-      //   } catch (e) {}
-      // };
-
-      // // pointermove handler (shows overlays and resets idle timer)
-      // this._onOverlayActivity = (ev) => {
-      //   // on any pointermove -> show and reset idle
-      //   this._showCombinedOverlays();
-      //   if (this._overlayIdleTimer) { clearTimeout(this._overlayIdleTimer); this._overlayIdleTimer = null; }
-      //   this._overlayIdleTimer = setTimeout(() => {
-      //     // on timeout hide overlays unless touch-activated
-      //     if (!this._overlayTouchActive) this._hideCombinedOverlays();
-      //     this._overlayIdleTimer = null;
-      //   }, OVERLAY_IDLE_MS);
-      // };
-
-      // // touch behavior: single tap toggles overlay awake state (mobile)
-      // this._onTouchToggle = (ev) => {
-      //   // prevent simulated mouse move bubbling interfering
-      //   ev.stopPropagation();
-      //   ev.preventDefault();
-      //   // toggle touch active state
-      //   this._overlayTouchActive = !this._overlayTouchActive;
-      //   if (this._overlayTouchActive) {
-      //     // make overlays visible and interactive, schedule hide after timeout
-      //     this._showCombinedOverlays();
-      //     if (this._overlayIdleTimer) { clearTimeout(this._overlayIdleTimer); this._overlayIdleTimer = null; }
-      //     this._overlayIdleTimer = setTimeout(() => {
-      //       this._overlayTouchActive = false;
-      //       this._hideCombinedOverlays();
-      //       this._overlayIdleTimer = null;
-      //     }, OVERLAY_IDLE_MS);
-      //   } else {
-      //     // if turning off, hide immediately
-      //     if (this._overlayIdleTimer) { clearTimeout(this._overlayIdleTimer); this._overlayIdleTimer = null; }
-      //     this._hideCombinedOverlays();
-      //   }
-      // };
-
-      // // Attach events to gallery area
-      // try {
-      //   const gpArea = this.container.querySelector('.gallery-player') || this.container;
-      //   if (gpArea) {
-      //     gpArea.addEventListener('pointermove', this._onOverlayActivity, { passive: true });
-      //     gpArea.addEventListener('pointerenter', this._onOverlayActivity, { passive: true });
-      //     gpArea.addEventListener('pointerleave', () => {
-      //       if (this._overlayIdleTimer) { clearTimeout(this._overlayIdleTimer); this._overlayIdleTimer = null; }
-      //       // hide when leaving pointer only if not touch-activated
-      //       if (!this._overlayTouchActive) this._hideCombinedOverlays();
-      //     });
-
-      //     // handle touch (mobile): a tap toggles overlays awake state
-      //     gpArea.addEventListener('touchstart', (ev) => {
-      //       // treat as toggle: single tap -> wake overlays (interactive) for OVERLAY_IDLE_MS
-      //       // if already awake via pointermove ignore
-      //       if (!this._overlayVisible || !this._overlayTouchActive) {
-      //         this._onTouchToggle(ev);
-      //       }
-      //     }, { passive: false });
-      //   }
-      // } catch (e) { /* ignore */ }
-
-
-      // Only auto-play first slide if allowed (if constructed with autoplay:true)
-      if (this.slides.length && this.autoplay) {
-        this.playIndex(0, { autoplayStart: true });
+    _ensureUnifiedOverlay() {
+      // if no wrapper gallery-overlay present, create one and move top, play, bottom into it
+      if (!this.galleryOverlay) {
+        this.galleryOverlay = create('div', { class: 'gallery-overlay' }, '');
+        // try to find and move existing overlay parts into it
+        const top = this.container.querySelector('.top-overlay');
+        const play = this.container.querySelector('.play-overlay');
+        const bottom = this.container.querySelector('.bottom-overlay') || this.container.querySelector('.carousel-bottom');
+        const bar = this.container.querySelector('.progress-wrap');
+        if (top) this.galleryOverlay.appendChild(top);
+        if (play) this.galleryOverlay.appendChild(play);
+        if (bottom) this.galleryOverlay.appendChild(bottom);
+        if (bar) this.galleryOverlay.appendChild(bar);
+        // append wrapper into container
+        this.container.appendChild(this.galleryOverlay);
       }
-      this.resetAutoplay();
-      this._attachInteractionListeners();
+      // ensure pointer-events on child controls are active
+      this.galleryOverlay.querySelectorAll('.top-btn, .mute-btn, .fs-btn, .control-btn, .progress-wrap').forEach(el => {
+        el.style.pointerEvents = 'auto';
+      });
+    }
+
+    _showGalleryOverlayTransient() {
+      this._showGalleryOverlay();
+      this._startOverlayHideTimer();
+    }
+
+    _showGalleryOverlay() {
+      if (!this.galleryOverlay) return;
+      this.galleryOverlay.classList.add('visible');
+      this.galleryOverlay.classList.remove('hidden');
+      this._overlayVisible = true;
+      // ensure play/top/bottom visible states (class based; CSS must handle transitions)
+      if (this.playOverlay) this.playOverlay.style.opacity = '1';
+      if (this.topOverlay) this.topOverlay.style.opacity = '1';
+      if (this.bottomOverlay) this.bottomOverlay.style.opacity = '1';
+    }
+
+    _hideGalleryOverlay() {
+      if (!this.galleryOverlay) return;
+      this.galleryOverlay.classList.remove('visible');
+      this.galleryOverlay.classList.add('hidden');
+      this._overlayVisible = false;
+      if (this.playOverlay) this.playOverlay.style.opacity = '0';
+      if (this.topOverlay) this.topOverlay.style.opacity = '0';
+      if (this.bottomOverlay) this.bottomOverlay.style.opacity = '0';
+    }
+
+    _startOverlayHideTimer(timeout = MOUSE_IDLE_MS) {
+      if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; }
+      // on mobile use mobile timeout
+      const useTimeout = isMobileDevice() ? MOBILE_OVERLAY_TIMEOUT_MS : timeout;
+      this._overlayTimer = setTimeout(() => {
+        this._hideGalleryOverlay();
+        this._overlayTimer = null;
+      }, useTimeout);
+    }
+
+    _onMouseMove() {
+      this._showGalleryOverlay();
+      if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; }
+      this._startOverlayHideTimer();
+    }
+
+    _onTouchTap(ev) {
+      // toggle overlay on mobile tap
+      if (!isMobileDevice()) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (this._overlayVisible) {
+        this._hideGalleryOverlay();
+      } else {
+        this._showGalleryOverlay();
+        this._startOverlayHideTimer();
+      }
     }
 
     _setupLayers() {
@@ -619,16 +574,15 @@
           layer.addEventListener('playing', () => this._onPlaying(layer));
           layer.addEventListener('canplay', () => this._onPlaying(layer));
           layer.addEventListener('error', () => this._onPlaying(layer));
-          // when the front layer ends, advance (looping)
-          layer.addEventListener('ended', () => {
-            try {
-              // if user paused (manual), don't auto advance
-              if (this.isManual) return;
-              this.next();
-            } catch (e) {}
-          });
+          layer.addEventListener('ended', () => this._onVideoEnded());
         });
       }
+    }
+
+    _onVideoEnded() {
+      // normal autoplay sequence when gallery is autoplaying (not when a single video opened via URL)
+      if (this.isManual) return; // user / single-video mode -> don't advance
+      this.next();
     }
 
     _wireTopControls() {
@@ -642,42 +596,25 @@
         });
       }
       if (this.topFsBtn) {
-        this.topFsBtn.addEventListener('click', (e) => { e.stopPropagation(); this.toggleFullscreen(); });
+        this.topFsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleFullscreen();
+          // keep icon visible — toggling classes only, do not hide images
+          this.updateFullscreenButton();
+        });
       }
       ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(ev => document.addEventListener(ev, ()=> this.updateFullscreenButton()));
     }
 
     toggleFullscreen() {
       const el = this.container;
-      // prefer standard API
-      const frontVideo = this._getFrontLayer();
-
-      const enterFs = async () => {
-        try {
-          if (el.requestFullscreen) await el.requestFullscreen();
-          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-          else if (frontVideo && frontVideo.webkitEnterFullscreen) frontVideo.webkitEnterFullscreen(); // iOS fallback
-        } catch (e) { /* ignore */ }
-      };
-
-      const exitFs = async () => {
-        try {
-          if (document.exitFullscreen) await document.exitFullscreen();
-          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-          // note: no webkitExitFullscreen on video element broadly
-        } catch (e) { /* ignore */ }
-      };
-
       if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-        enterFs();
+        if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
       } else {
-        exitFs();
+        if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
       }
-
-      // update button state shortly after toggling
-      setTimeout(() => this.updateFullscreenButton(), 300);
+      setTimeout(()=> this.updateFullscreenButton(), 250);
     }
-
 
     updateFullscreenButton() {
       const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
@@ -685,6 +622,7 @@
       this.topFsBtn.classList.toggle('is-full', isFull);
       this.topFsBtn.setAttribute('aria-pressed', isFull ? 'true' : 'false');
       this.topFsBtn.setAttribute('aria-label', isFull ? 'Esci schermo intero' : 'Attiva schermo intero');
+      // ensure img/icon remains visible: don't manipulate children display here
     }
 
     _wireControls() {
@@ -693,8 +631,6 @@
     }
 
     _onBuffering(layer) {
-      const front = this._getFrontLayer();
-      if (!front) return;
       if (this.playOverlay) {
         this.playOverlay.classList.add('buffering');
         this.playOverlay.classList.remove('paused');
@@ -756,6 +692,7 @@
     resetAutoplay() {
       this.clearAutoplay();
       if (this.isManual) return;
+      // fallback timer (not primary); normal advance is triggered on ended event
       this.autoplayTimer = setInterval(() => { this.next(); }, GALLERY_AUTOPLAY_INTERVAL_MS);
     }
 
@@ -833,13 +770,12 @@
       this._syncTitle(meta.title);
       this._flashOverlay();
       this._startProgressLoop();
-
       this._highlightGridItem(i);
       try {
         const grid = document.getElementById('galleryGrid');
         if (!this.isManual) focusGridItem(grid, i);
       } catch (e) {}
-
+      // preload next
       const nextIndex = (i + 1) % this.slides.length;
       const inactiveLayer = (this.front === 'A') ? this.layerB : this.layerA;
       const preUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src)) || '';
@@ -849,10 +785,7 @@
     _syncTitle(t) { if (this.titleEl) this.titleEl.textContent = t || ''; }
 
     _flashOverlay() {
-      const overlay = this.container.querySelector('.gallery-overlay');
-      if (!overlay) return;
-      overlay.classList.add('force-visible');
-      setTimeout(() => overlay.classList.remove('force-visible'), SLIDE_CHANGE_OVERLAY_MS);
+      this._showGalleryOverlayTransient();
     }
 
     _getFrontLayer() { return (this.front === 'A') ? this.layerA : this.layerB; }
@@ -877,7 +810,6 @@
       const pct = (dur > 0) ? Math.min(100, (cur / dur) * 100) : 0;
       bar.style.width = pct + '%';
       bar.setAttribute('aria-valuenow', String(Math.round(pct)));
-
       if (buf && layer.buffered && layer.buffered.length) {
         try {
           let end = 0;
@@ -957,52 +889,8 @@
       if (this.topOverlay) { this.topOverlay.classList.add('paused'); this.topOverlay.style.display = 'flex'; this.topOverlay.style.opacity = '1'; }
     }
 
-    _showPlayTransient() {
-      if (!this.playOverlay) return;
-      const pa = this.playOverlay.querySelector('.icon-pause');
-      const ip = this.playOverlay.querySelector('.icon-play');
-      const spinner = this.playOverlay.querySelector('.buffer-spinner');
-      if (pa) { try { pa.style.transition = 'none'; pa.style.opacity = '0'; pa.style.transform = 'translate(-50%,-50%) scale(0.88)'; pa.style.display = 'none'; } catch(e){} }
-      this.playOverlay.classList.remove('paused');
-      if (this.topOverlay) {
-        this.topOverlay.classList.remove('paused');
-        this.topOverlay.classList.remove('buffering');
-        this.topOverlay.classList.add('animate-in');
-        this.topOverlay.style.display = 'flex';
-        this.topOverlay.style.opacity = '1';
-        setTimeout(()=> { try { this.topOverlay.classList.remove('animate-in'); } catch(e){} if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) { this.topOverlay.style.opacity = '0'; setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220); } }, PLAY_TRANSIENT_MS + 40);
-      }
-      if (spinner) { spinner.style.opacity = '0'; spinner.style.display = 'none'; this.playOverlay.classList.remove('buffering'); }
-      this.playOverlay.style.display = 'flex'; this.playOverlay.style.opacity = '1';
-      if (ip) { ip.style.display = 'block'; ip.style.opacity = '1'; ip.style.transform = 'translate(-50%,-50%) scale(0.95)'; ip.style.zIndex = '9999'; }
-      if (window.gsap) {
-        gsap.fromTo(ip, { scale: 0.95, opacity: 1 }, { scale: 1.28, opacity: 0, duration: PLAY_TRANSIENT_MS / 1000, ease: 'power2.out', onComplete: () => { try { ip.style.opacity = '0'; ip.style.display = 'none'; } catch(e){} if (!this.playOverlay.classList.contains('buffering') && !this.playOverlay.classList.contains('paused')) { this.playOverlay.style.opacity = '0'; setTimeout(()=> this.playOverlay.style.display = 'none', 220); } }});
-      } else {
-        ip.style.transition = `transform ${PLAY_TRANSIENT_MS}ms cubic-bezier(.22,.9,.3,1), opacity ${PLAY_TRANSIENT_MS}ms ease`;
-        requestAnimationFrame(()=> { ip.style.transform = 'translate(-50%,-50%) scale(1.28)'; ip.style.opacity = '0'; });
-        setTimeout(()=> { try { ip.style.display = 'none'; ip.style.opacity = '0'; } catch(e){} if (!this.playOverlay.classList.contains('buffering') && !this.playOverlay.classList.contains('paused')) { this.playOverlay.style.opacity = '0'; setTimeout(()=> this.playOverlay.style.display = 'none', 220); } }, PLAY_TRANSIENT_MS + 20);
-      }
-    }
-
-    _showOverlays() {
-      if (this.playOverlay) { this.playOverlay.style.display = 'flex'; this.playOverlay.style.opacity = '1'; }
-      if (this.galleryOverlay) { this.galleryOverlay.style.display = 'flex'; this.galleryOverlay.style.opacity = '1'; }
-      if (this.topOverlay) { this.topOverlay.style.display = 'flex'; this.topOverlay.style.opacity = '1'; this.topOverlay.classList.add('force-visible'); setTimeout(()=> { try { this.topOverlay.classList.remove('force-visible'); } catch(e){} }, 50); }
-
-    }
-
-    _hideOverlays() {
-      if (this.playOverlay) {
-        if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
-          this.playOverlay.style.opacity = '0';
-          setTimeout(()=> { try { this.playOverlay.style.display = 'none'; } catch(e){} }, 220);
-        }
-      }
-      if (this.topOverlay) {
-        this.topOverlay.style.opacity = '0';
-        setTimeout(()=> { try { this.topOverlay.style.display = 'none'; } catch(e){} }, 220);
-      }
-    }
+    _showOverlays() { this._showGalleryOverlay(); this._startOverlayHideTimer(); }
+    _hideOverlays() { this._hideGalleryOverlay(); }
 
     _highlightGridItem(index) {
       try {
@@ -1021,34 +909,31 @@
       try { this.layerA.pause(); this.layerB.pause(); } catch (e) {}
       destroyHlsForEl(this.layerA);
       destroyHlsForEl(this.layerB);
+      if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; }
+      // remove event listeners if needed (not fully unbound here for brevity)
     }
   }
 
   /* ---------------- Home init ---------------- */
+  let homeCarousel = null;
   function initHome(context = document) {
     const section = context.querySelector('#carouselSection');
     if (!section) return;
     let slides = Array.isArray(HOME_CAROUSEL) && HOME_CAROUSEL.length ? HOME_CAROUSEL.slice() : FEATURED_IDS.map(id => VIDEOS.find(v => v.id === id)).filter(Boolean);
     if (!slides.length) slides.push(...(Array.isArray(VIDEOS) ? VIDEOS.slice(0, Math.min(5, VIDEOS.length)) : []));
-    homeCarousel = new HomeCarousel({ container: section, slides, interval: HOME_AUTOPLAY_INTERVAL_MS });
+    homeCarousel = new HomeCarousel({ container: section, slides });
   }
 
   /* ---------------- Gallery init ---------------- */
+  let galleryPlayer = null;
   function initGallery(context = document) {
     const catList = context.querySelector('#categoryList');
     const galleryGrid = context.querySelector('#galleryGrid');
     const section = context.querySelector('#galleryCarouselSection');
-
     if (!catList || !galleryGrid || !section) return;
 
-    // Allow autoplay only when the path is exactly /gallery or /gallery/ (no query/hash)
-    const pathIsPlainGallery = (() => {
-      try {
-        const p = location.pathname.replace(/\/+$/, ''); // rimuove slash finali
-        return p === '/gallery' || p === '';
-      } catch (e) { return false; }
-    })();
-
+    // parse URL hash for category/video
+    const hashInfo = parseGalleryHash(); // { category, video }
 
     catList.innerHTML = '';
     CATEGORIES.forEach((c, idx) => {
@@ -1059,22 +944,18 @@
       btn.setAttribute('data-category', c);
       btn.setAttribute('role', 'tab');
       btn.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
-
       btn.addEventListener('click', () => {
         catList.querySelectorAll('button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
         btn.classList.add('active');
         btn.setAttribute('aria-selected','true');
-        renderCategory(c);
-        // update URL (replace state)
-        updateURLForCategory(c, false);
+        renderCategory(c, { fromHash: false });
       });
-
       li.appendChild(btn);
       catList.appendChild(li);
     });
 
-    // renderCategory is local to initGallery scope
-    async function renderCategory(category) {
+    // renderCategory now accepts options: { startVideoId, noAutoplay (boolean) }
+    async function renderCategory(category, opts = {}) {
       const slides = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
       if (!slides.length) {
         if (galleryPlayer) galleryPlayer.destroy();
@@ -1088,73 +969,88 @@
         return;
       }
 
+      // create or update player
       if (galleryPlayer) {
         galleryPlayer.setSlides(slides);
-        galleryPlayer.playIndex(0);
         galleryPlayer.isManual = false;
-        galleryPlayer.resetAutoplay();
+        // don't immediately play here — we will decide based on opts
       } else {
-        galleryPlayer = new GalleryPlayer({ container: section, slides, autoplay: pathIsPlainGallery });
+        galleryPlayer = new GalleryPlayer({ container: section, slides });
       }
 
+      // update mute state
       if (galleryPlayer) galleryPlayer.updateMuteButton();
+
       populateGrid(galleryGrid, category);
 
-      // setTimeout(() => focusGridItem(galleryGrid, 0), 60);
+      // if called from hash and video specified -> select that video and DON'T start autoplay
+      if (opts.startVideoId) {
+        // mark manual mode so autoplay won't interfere
+        galleryPlayer.isManual = true;
+        // find index in slides
+        const idx = slides.findIndex(s => s.id === opts.startVideoId);
+        if (idx >= 0) {
+          // small delay to allow gallery DOM render & player ready
+          setTimeout(() => {
+            try {
+              galleryPlayer.playIndex(idx, { userTriggered: true });
+              // ensure overlays shown briefly then hide
+              galleryPlayer._showGalleryOverlayTransient?.();
+            } catch (e) {}
+          }, 120);
+        } else {
+          // video id not found in this category -> do nothing special, maybe navigate fallback
+        }
+      } else {
+        // normal category view: start autoplay behavior (first video)
+        // set manual=false to allow autoplay
+        galleryPlayer.isManual = false;
+        // play first after slight delay so DOM finishes
+        setTimeout(() => {
+          try {
+            galleryPlayer.playIndex(0);
+          } catch (e) {}
+        }, 120);
+      }
+
+      // Focus first grid item visually (for keyboard)
+      setTimeout(() => focusGridItem(galleryGrid, 0), 60);
     }
 
-    // initial category
-    const activeBtn = catList.querySelector('button.active');
-    const initialCategory = activeBtn ? (activeBtn.getAttribute('data-category') || CATEGORIES[0]) : CATEGORIES[0];
+    // determine initial category to render:
+    let initialCategory = CATEGORIES[0];
+    if (hashInfo.category) {
+      // try to match a category (case-sensitive as your data uses)
+      if (CATEGORIES.includes(hashInfo.category)) initialCategory = hashInfo.category;
+      else {
+        // try case-insensitive match
+        const found = CATEGORIES.find(c => c.toLowerCase() === (hashInfo.category || '').toLowerCase());
+        if (found) initialCategory = found;
+      }
+    } else {
+      const activeBtn = catList.querySelector('button.active');
+      if (activeBtn) initialCategory = activeBtn.getAttribute('data-category') || CATEGORIES[0];
+    }
+
+    // set initial button active visually
     setTimeout(() => {
       const btnToFocus = catList.querySelector(`button[data-category="${initialCategory}"]`) || catList.querySelector('button');
       if (btnToFocus) { try { btnToFocus.focus({ preventScroll: true }); } catch(e) { btnToFocus.focus(); } }
     }, 40);
 
-    // render initial category (keeps previous code)
-    renderCategory(initialCategory);
-
-    // Now handle deep-link from URL: ?cat=...&vid=...
-    (function handleDeepLink() {
-      const q = parseQueryParams(location.search);
-      // If using hash style (#cat=..&vid=..) we also accept that:
-      if (!q.cat && location.hash && location.hash.startsWith('#')) {
-        const qh = parseQueryParams(location.hash.replace(/^#/, '?'));
-        if (qh.cat) q.cat = qh.cat;
-        if (qh.vid) q.vid = qh.vid;
-      }
-
-      if (!q.cat && !q.vid) return;
-
-      // If a cat provided and different from current active -> render it
-      const currentActiveBtn = catList.querySelector('button.active');
-      const currentCat = currentActiveBtn ? currentActiveBtn.getAttribute('data-category') : null;
-
-      const wantCat = q.cat || currentCat || initialCategory;
-
-      // Render desired category (this will create galleryPlayer and grid)
-      // If it's already the active category, renderCategory(wantCat) will just re-render grid.
-      renderCategory(wantCat);
-
-      // After a short delay (to allow DOM render), find the vid and play it
-      setTimeout(() => {
-        if (!q.vid || !galleryPlayer) return;
-        // find index in current slides
-        const idx = galleryPlayer.slides ? galleryPlayer.slides.findIndex(s => s.id === q.vid) : -1;
-        if (idx >= 0) {
-          galleryPlayer.playIndex(idx, { userTriggered: true });
-          // update URL without reloading to reflect current playback
-          try { history.replaceState({}, '', '/gallery?cat=' + encodeURIComponent(wantCat) + '&vid=' + encodeURIComponent(q.vid)); } catch (e) {}
-        }
-      }, 140);
-    })();
+    // render initial category with hash-driven options
+    if (hashInfo.video) {
+      // render category but start specific video (no autoplay)
+      renderCategory(initialCategory, { startVideoId: hashInfo.video, fromHash: true });
+    } else {
+      renderCategory(initialCategory, { fromHash: !!hashInfo.category });
+    }
   }
 
   /* ---------------- populateGrid (preview logic) ---------------- */
   function populateGrid(container, category) {
     stopAllPreviewsExcept(null);
     container.innerHTML = '';
-
     const items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
     items.forEach((v, idx) => {
       const posterUrl = v.poster || (`media/posters/${v.id}.jpg`);
@@ -1166,7 +1062,6 @@
         <div class="preview-info"><strong>${escapeHtml(v.title || '')}</strong></div>
         <div class="preview-info"><small>${escapeHtml(v.desc || '')}</small></div>
       `;
-
       const vid = btn.querySelector('video');
       let hoverTimer = null;
 
@@ -1176,7 +1071,6 @@
         const isManifest = ds.toLowerCase().endsWith('.m3u8');
         const fallback = (v.mp4 || v.src || '');
         const useUrl = (!isManifest && ds) ? ds : (fallback || '');
-
         if (!vid.getAttribute('src') && useUrl) {
           const doLoad = () => {
             try {
@@ -1193,8 +1087,7 @@
               _activePreviews.add(vid);
             } catch (e) {}
           };
-          if ('requestIdleCallback' in window) requestIdleCallback(doLoad, { timeout: 120 });
-          else setTimeout(doLoad, 80);
+          if ('requestIdleCallback' in window) requestIdleCallback(doLoad, { timeout: 120 }); else setTimeout(doLoad, 80);
         } else if (vid.getAttribute('src')) {
           try { vid.play().catch(()=>{}); btn.classList.add('hovering'); _activePreviews.add(vid); } catch(e){}
         }
@@ -1204,7 +1097,6 @@
         if (hoverTimer) clearTimeout(hoverTimer);
         hoverTimer = setTimeout(loadAndPlayPreview, 60);
       });
-
       btn.addEventListener('pointerleave', () => {
         if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
         setTimeout(()=> { stopPreview(vid); }, 80);
@@ -1214,26 +1106,19 @@
         ev.stopPropagation();
         stopAllPreviewsExcept(null);
         if (galleryPlayer) {
+          galleryPlayer.isManual = true;
           galleryPlayer.playIndex(idx, { userTriggered: true });
-          // update URL to reflect this video
-          updateURLForVideo(v.category, v.id, true);
-        } else {
-          // if galleryPlayer not ready yet, still update URL
-          updateURLForVideo(v.category, v.id, true);
         }
         focusGridItem(container, idx);
-
-        try {
-          const q = new URLSearchParams();
-          q.set('cat', category || '');
-          q.set('vid', v.id || '');
-          history.replaceState({}, '', '/gallery?' + q.toString());
-        } catch (e) {}
-
+        // update URL hash to reflect selection
+        const cat = category || '';
+        const newHash = `#${encodeURIComponent(cat)}/${encodeURIComponent(v.id)}`;
+        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
       });
 
-      // expose data-id
+      // expose data-id for linking from home carousel
       btn.setAttribute('data-id', v.id);
+      btn.setAttribute('data-index', idx);
 
       container.appendChild(btn);
     });
@@ -1241,123 +1126,12 @@
     setTimeout(() => focusGridItem(container, 0), 40);
   }
 
-  /* ---------------- Route / URL -> UI sync ---------------- */
-
-  function buildGalleryURL(cat, vid) {
-    const params = new URLSearchParams();
-    if (cat) params.set('cat', cat);
-    if (vid) params.set('vid', vid);
-    return '/gallery' + (params.toString() ? '?' + params.toString() : '');
-  }
-  function updateURLForVideo(cat, vid, push = false) {
-    const newUrl = buildGalleryURL(cat, vid);
-    try {
-      if (push) history.pushState({}, '', newUrl);
-      else history.replaceState({}, '', newUrl);
-    } catch (e) {}
-  }
-  function updateURLForCategory(cat, push = false) {
-    const newUrl = buildGalleryURL(cat, '');
-    try {
-      if (push) history.pushState({}, '', newUrl);
-      else history.replaceState({}, '', newUrl);
-    } catch (e) {}
-  }
-
-  function waitFor(fn, interval = 60, timeout = 5000) {
-    return new Promise((resolve, reject) => {
-      const start = Date.now();
-      const tick = () => {
-        try {
-          if (fn()) return resolve();
-        } catch (e) {}
-        if (Date.now() - start > timeout) return reject(new Error('waitFor timeout'));
-        setTimeout(tick, interval);
-      };
-      tick();
-    });
-  }
-
-  function parseRoute() {
-    const q = new URLSearchParams(location.search || '');
-    let cat = q.get('cat') || '';
-    let vid = q.get('vid') || '';
-
-    if (!cat && location.hash) {
-      const raw = (location.hash || '').replace(/^#/, '');
-      const h = new URLSearchParams(raw);
-      cat = cat || h.get('cat') || '';
-      vid = vid || h.get('vid') || '';
-    }
-    return { cat, vid };
-  }
-
-  function parseQueryParams(search) {
-    const obj = {};
-    try {
-      const sp = new URLSearchParams(search || location.search || location.hash.replace(/^#\?/, '?') || '');
-      for (const [k, v] of sp.entries()) obj[k] = v;
-    } catch (e) {}
-    return obj;
-  }
-
-  async function navigateFromURL() {
-    const path = location.pathname || '/';
-    if (path === '/' || path === '/index.html') return;
-
-    const { cat, vid } = parseRoute();
-
-    if (path.startsWith('/gallery')) {
-      if (cat) {
-        const catBtn = document.querySelector(`#categoryList button[data-category="${cat}"]`) ||
-                       Array.from(document.querySelectorAll('#categoryList button')).find(b => b.getAttribute('data-category') === cat);
-        if (catBtn) {
-          // click triggers renderCategory and updates UI
-          try { catBtn.click(); } catch (e) {}
-        } else {
-          // nothing: let gallery init default
-        }
-      } else {
-        const btn = document.querySelector('#categoryList button');
-        if (btn) try { btn.click(); } catch (e) {}
-      }
-
-      try {
-        await waitFor(() => window.galleryPlayer && Array.isArray(window.galleryPlayer.slides) && window.galleryPlayer.slides.length > 0, 60, 5000);
-      } catch (err) {
-        return;
-      }
-
-      try {
-        const muted = readMute();
-        if (galleryPlayer.layerA) galleryPlayer.layerA.muted = !!muted;
-        if (galleryPlayer.layerB) galleryPlayer.layerB.muted = !!muted;
-      } catch (e) {}
-
-      if (vid) {
-        const idx = galleryPlayer.slides.findIndex(s => String(s.id) === String(vid));
-        if (idx >= 0) {
-          setTimeout(() => {
-            try { galleryPlayer.playIndex(idx, { userTriggered: true }).catch?.(()=>{}); } catch (e) {}
-          }, 80);
-          return;
-        }
-      }
-
-      setTimeout(() => { try { galleryPlayer.playIndex(0).catch?.(()=>{}); } catch (e) {} }, 80);
-    }
-  }
-
-  window.addEventListener('popstate', () => { navigateFromURL().catch(()=>{}); });
-
   /* ---------------- RUN / BARBA ---------------- */
   function runInits(context = document) {
     initMenu(context);
     if (context.querySelector && context.querySelector('#carouselSection')) initHome(context);
     if (context.querySelector && context.querySelector('#galleryCarouselSection')) initGallery(context);
     if (context.querySelector && context.querySelector('.facts')) initAbout && initAbout(context);
-    // ensure initial route once gallery is inited
-    setTimeout(() => navigateFromURL().catch(()=>{}), 120);
   }
 
   function initBarbaSafe(runInitial) {
@@ -1393,6 +1167,7 @@
     } catch (e) { runInitial(document); }
   }
 
+  /* ---------------- START ---------------- */
   function start() {
     if (window.__APP_INITIALIZED__) return;
     window.__APP_INITIALIZED__ = true;
@@ -1400,5 +1175,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 
-  log('main.js ready — HLS + MP4 fallback, gallery & home carousel updated.');
+  log('main.js ready — HLS + MP4 fallback, unified gallery overlay, URL-driven gallery behavior.');
 })();
