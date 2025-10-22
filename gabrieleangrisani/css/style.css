@@ -40,7 +40,7 @@ body.no-scroll{overflow:hidden}
   justify-content:space-between;
   padding-left:0;
   padding-right: 20px;
-  z-index:3000;               /* alto per stare sopra il video */
+  z-index:300000;               /* alto per stare sopra il video */
   background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.25));
   backdrop-filter: blur(8px);
   border-bottom:1px solid rgba(255,255,255,0.03);
@@ -153,6 +153,7 @@ body.no-scroll{overflow:hidden}
 
 /*  Home bottom overlay (clickable meta)  */
 .home-carousel-bottom {
+  background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45));
   position: absolute;
   left: 0;
   right: 0;
@@ -162,20 +163,24 @@ body.no-scroll{overflow:hidden}
   pointer-events: auto;
   z-index: 11;
   padding: 12px 20px;
+  width: 100%;
 }
 .home-carousel-bottom .hc-meta {
-  background: linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.45));
+  /* background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.25));
   backdrop-filter: blur(6px);
   border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.04);
+  min-width: 100%;
+  max-width: calc(100% - 40px); */
   padding: 12px 18px;
   display: flex;
   flex-direction: column;
-  /* gap: 6px; */
-  /* align-items: center; */
-  min-width: 100%;
-  /* max-width: calc(100% - 40px); */
-  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-  /* border: 1px solid rgba(255,255,255,0.04); */
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+
+
 }
 .hc-title {
   font-weight:700;
@@ -359,7 +364,7 @@ body.no-scroll{overflow:hidden}
 }
 
 /* ------------ bottom overlay: play/pause + spinner ------------ */
-.bottom-overlay{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;gap:12px;width:100%;z-index:11;pointer-events:none;opacity:0;transition:opacity .22s}
+.bottom-overlay{background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.45)); position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;gap:12px;width:100%;z-index:11;pointer-events:none;opacity:0;transition:opacity .22s}
 .gallery-overlay.visible .bottom-overlay{opacity:1}
 .bottom-overlay .control-btn{pointer-events:auto}
 .bottom-overlay .bottom-overlay-text{flex:1;text-align:center;pointer-events:auto}
@@ -368,7 +373,7 @@ body.no-scroll{overflow:hidden}
 .bottom-overlay-title{font-size:2.6rem;text-transform:uppercase;letter-spacing:-1px;margin-bottom:6px}
 
 /* progress */
-.progress-wrap{position:absolute;left:0;right:0;bottom:0;height:6px;background:rgba(255,255,255,0.03);z-index:30;overflow:visible;pointer-events:auto;border-radius:999px}
+.progress-wrap{position:absolute;left:0;right:0;bottom:0;height:6px;z-index:30;overflow:visible;pointer-events:auto;border-radius:999px}
 .progress-buffer{position:absolute;left:0;top:50%;transform:translateY(-50%);height:4px;width:0;background:rgba(255,255,255,0.12);transition:width .22s linear;border-radius:999px;z-index:31}
 .progress-bar{position:absolute;left:0;top:50%;transform:translateY(-50%);height:6px;width:0;background:linear-gradient(90deg,var(--accent),rgba(219,67,56,0.85));transition:width .12s linear;z-index:32;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,0.45)}
 .progress-wrap:hover{height:10px}

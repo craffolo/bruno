@@ -4,6 +4,7 @@
   const GALLERY_AUTOPLAY_INTERVAL_MS = 10000; // autoplay gallery player (usato se non manuale)
   const SLIDE_CHANGE_OVERLAY_MS = 1500;
   const MOUSE_IDLE_MS = 2000; // per gallery overlay
+  const MOBILE_OVERLAY_TIMEOUT_MS = 2000
 
   /* ---------------- DATA (esempio) ---------------- */
   const HOME_CAROUSEL = (typeof window !== 'undefined' && window.HOME_CAROUSEL) ? window.HOME_CAROUSEL : [
@@ -142,6 +143,7 @@
     { 
       id: 'waldeinsamkeit', 
       hls: 'media/works/narratives/waldeinsamkeit/index.m3u8',  
+      mp4: 'media/works/narratives/waldeinsamkeit.mp4',
       title: 'Waldeinsamkeit', 
       category: 'Narratives' 
     },
@@ -174,7 +176,7 @@
 
   /* persistent mute preference */
   const MUTE_KEY = 'site_mute_pref';
-  function readMute() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
+  function readMute() { try { return localStorage.getItem(MUTE_KEY) === '0'; } catch (e) { return false; } }
   function writeMute(v) { try { localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) {} }
 
   /* HLS management (centralized) */
@@ -552,14 +554,15 @@
 
     _onTouchTap(ev) {
       // toggle overlay on mobile tap
-      if (!isMobileDevice()) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (this._overlayVisible) {
-        this._hideGalleryOverlay();
-      } else {
-        this._showGalleryOverlay();
-        this._startOverlayHideTimer();
+      if (!isMobileDevice()) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (this._overlayVisible) {
+          this._hideGalleryOverlay();
+        } else {
+          this._showGalleryOverlay();
+          this._startOverlayHideTimer();
+        }
       }
     }
 
@@ -836,7 +839,7 @@
           front.play().catch(()=>{});
           this._onUserInteraction();
           this._startProgressLoop();
-          this._showPlayTransient();
+          this._showGalleryOverlayTransient();
         } else {
           front.pause();
           this._onUserInteraction();
@@ -936,19 +939,27 @@
     const hashInfo = parseGalleryHash(); // { category, video }
 
     catList.innerHTML = '';
-    CATEGORIES.forEach((c, idx) => {
+    CATEGORIES.forEach((category, idx) => {
       const li = create('li');
-      const btn = create('button', {}, c);
+      const btn = create('button', {}, category);
       btn.classList.add('category-item');
-      if (idx === 0) btn.classList.toggle('active', true);
-      btn.setAttribute('data-category', c);
+      if (idx === 0) {
+        btn.classList.toggle('active', true);
+        const cat = category || '';
+        const newHash = `#${encodeURIComponent(cat)}`;
+        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
+      }
+      btn.setAttribute('data-category', category);
       btn.setAttribute('role', 'tab');
       btn.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
       btn.addEventListener('click', () => {
         catList.querySelectorAll('button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
         btn.classList.add('active');
         btn.setAttribute('aria-selected','true');
-        renderCategory(c, { fromHash: false });
+        const cat = category || '';
+        const newHash = `#${encodeURIComponent(cat)}`;
+        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
+        renderCategory(category, { fromHash: false });
       });
       li.appendChild(btn);
       catList.appendChild(li);
