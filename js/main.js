@@ -99,25 +99,221 @@
   ];
   const FEATURED_IDS = [];
   const VIDEOS = (typeof window !== 'undefined' && window.VIDEOS) ? window.VIDEOS : [
-    
-    // Documentaries 
+
+    //Music videos
     { 
-      id: 'cm_festafinecampagna25', 
-      hls: 'media/works/documentaries/cm_festafinecampagna25/index.m3u8', 
-      mp4: 'media/works/documentaries/cm_festafinecampagna25.mp4', 
-      title: 'CM Festa Fine Campagna 25', 
-      desc: 'Documentary - community & celebration', 
+      id: 'cast_ride_or_die', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Cast', 
+      desc: 'Ride or Die', 
+      category: 'Music videos' 
+    },
+    { 
+      id: 'eb_me_in_te', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Eb', 
+      desc: 'Me in te', 
+      category: 'Music videos' 
+    },
+    { 
+      id: 'evan_primo_marzo', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Evan', 
+      desc: 'Primo Marzo', 
+      category: 'Music videos' 
+    },
+    { 
+      id: 'niven_alpaca_freestyle', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Niven', 
+      desc: 'Alpaca Freestyle', 
+      category: 'Music videos' 
+    },
+    { 
+      id: 'sevdaliza_human', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Sevdaliza', 
+      desc: 'Human', 
+      category: 'Music videos' 
+    },
+    { 
+      id: 'sinestesie', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Sinestesie', 
+      desc: '', 
+      category: 'Music videos' 
+    },
+
+    //Corporate
+    { 
+      id: 'di_agostino_costruzioni_donna_salerno', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Di Agostino Costruzioni', 
+      desc: 'Donna Salerno', 
+      category: 'Corporate' 
+    },
+    { 
+      id: 'tecnokarpoint_l_officina_e_il_suo_ritmo', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Tecnokarpoint', 
+      desc: 'L’officina e il suo ritmo', 
+      category: 'Corporate' 
+    },
+    { 
+      id: 'di_agostino_costruzioni_villa_utopia', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Di Agostino Costruzioni', 
+      desc: 'Villa Utopia', 
+      category: 'Corporate' 
+    },
+
+    //Documentaries
+    { 
+      id: 'casa_marrazzo_festa_di_fine_campagna', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Casa Marrazzo', 
+      desc: 'Festa di fine campagna', 
       category: 'Documentaries' 
     },
 
-    // Music videos
+    //Fashion
     { 
-      id: 'cast_ride_or_die', 
-      hls: 'media/works/documentaries/cm_festafinecampagna25/index.m3u8', 
-      mp4: 'media/works/documentaries/cm_festafinecampagna25.mp4', 
-      title: 'Cast', 
-      desc: 'Ride Or Die', 
-      category: 'Music videos' 
+      id: 'alienation', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Alienation', 
+      desc: '', 
+      category: 'Fashion' 
+    },
+    { 
+      id: 'partenope_fashion_film', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Partenope', 
+      desc: 'Fashion Film', 
+      category: 'Fashion' 
+    },
+
+    //Fitness
+    { 
+      id: 'the_buff_biologist_motivational_reel', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'The Buff biologist', 
+      desc: 'Motivational reel', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'miriamssfit_e_gianzcoach_workout_compilation', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Miriamssfit e Gianzcoach', 
+      desc: 'Workout compilation', 
+      category: 'Fitness' 
+    },
+
+    //Food
+    { 
+      id: 'antonia_klugmann_la_quinta_stagione', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Antonia Klugmann', 
+      desc: 'La Quinta Stagione', 
+      category: 'Food' 
+    },
+    { 
+      id: 'varnelli_cocktail', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Varnelli', 
+      desc: 'Cocktail crafting', 
+      category: 'Food' 
+    },
+    { 
+      id: 'varnelli_interview', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Varnelli', 
+      desc: 'Interview', 
+      category: 'Food' 
+    },
+    { 
+      id: 'martina_caruso_la_quinta_stagione', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Martina Caruso', 
+      desc: 'La Quinta Stagione', 
+      category: 'Food' 
+    },
+    { 
+      id: 'valeria_piccini_la_quinta_stagione', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Valeria Piccini', 
+      desc: 'La Quinta Stagione', 
+      category: 'Food' 
+    },
+    { 
+      id: 'be_truffle_fancy_food_2025', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Be Truffle', 
+      desc: 'Fancy food 2025', 
+      category: 'Food' 
+    },
+    { 
+      id: 'be_truffle_basketball_players_reaction', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Be Truffle', 
+      desc: 'Basketball players reaction', 
+      category: 'Food' 
+    },
+    { 
+      id: 'trucillo_tedx', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Trucillo', 
+      desc: 'Tedx', 
+      category: 'Food' 
+    },
+    { 
+      id: 'alta_campania_wine_fest_video_hero', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Alta Campania Wine fest', 
+      desc: 'Video hero', 
+      category: 'Food' 
+    },
+
+
+
+    //Narratives
+    { 
+      id: 'chiacchiere_da_ascensore', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Chiacchiere da Ascensore', 
+      desc: '', 
+      category: 'Narratives' 
+    },
+    { 
+      id: 'waldeinsamkeit', 
+      hls: 'blank', 
+      mp4: 'blank', 
+      title: 'Waldeinsamkeit', 
+      desc: '', 
+      category: 'Narratives' 
     },
 
     // Commercials
@@ -127,18 +323,10 @@
       mp4: 'media/works/commercials/studio_notarile_dausilio.mp4', 
       preview: '', 
       title: "Studio Notarile D'Ausilio", 
-      desc: 'Spot', 
+      desc: 'Come a casa, anche nei momenti importanti', 
       category: 'Commercials' 
     },
 
-    // Narratives
-    { 
-      id: 'waldeinsamkeit', 
-      hls: 'media/works/narratives/waldeinsamkeit/index.m3u8',  
-      mp4: 'media/works/narratives/waldeinsamkeit.mp4',
-      title: 'Waldeinsamkeit', 
-      category: 'Narratives' 
-    },
   ];
   const CATEGORIES = ['Music videos', 'Commercials', 'Documentaries', 'Food', 'Fashion', 'Narratives', 'Social', 'Corporate',];
 
