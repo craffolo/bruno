@@ -94,30 +94,13 @@
       title: 'Waldeinsamkeit', 
       category: 'Narratives' , 
       galleryId: 'waldeinsamkeit' 
-    },  
+    },
+    
   ];
   const FEATURED_IDS = [];
   const VIDEOS = (typeof window !== 'undefined' && window.VIDEOS) ? window.VIDEOS : [
     
-    // Documentaries
-    { 
-      id: 'alici_di_menaica_mini_doc', 
-      hls: 'media/works/documentaries/alici_di_menaica_mini_doc/index.m3u8', 
-      mp4: 'media/works/documentaries/alici_di_menaica_mini_doc.mp4', 
-      preview: '', 
-      title: 'Alici di Menaica - Mini Doc', 
-      desc: 'Documentary - fishing & tradition', 
-      category: 'Documentaries' 
-    },
-    { 
-      id: 'alici_di_menaica_teaser', 
-      hls: 'media/works/documentaries/alici_di_menaica_teaser/index.m3u8', 
-      mp4: 'media/works/documentaries/alici_di_menaica_teaser.mp4', 
-      preview: '', 
-      title: 'Alici di Menaica - Teaser', 
-      desc: 'Documentary teaser', 
-      category: 'Documentaries' 
-    },
+    // Documentaries 
     { 
       id: 'cm_festafinecampagna25', 
       hls: 'media/works/documentaries/cm_festafinecampagna25/index.m3u8', 
@@ -125,6 +108,16 @@
       title: 'CM Festa Fine Campagna 25', 
       desc: 'Documentary - community & celebration', 
       category: 'Documentaries' 
+    },
+
+    // Music videos
+    { 
+      id: 'cast_ride_or_die', 
+      hls: 'media/works/documentaries/cm_festafinecampagna25/index.m3u8', 
+      mp4: 'media/works/documentaries/cm_festafinecampagna25.mp4', 
+      title: 'Cast', 
+      desc: 'Ride Or Die', 
+      category: 'Music videos' 
     },
 
     // Commercials
@@ -147,7 +140,7 @@
       category: 'Narratives' 
     },
   ];
-  const CATEGORIES = ['Music Videos', 'Commercials', 'Corporate', 'Fashion', 'Food', 'Documentaries', 'Narratives', 'Social'];
+  const CATEGORIES = ['Music videos', 'Commercials', 'Documentaries', 'Food', 'Fashion', 'Narratives', 'Social', 'Corporate',];
 
   /* ---------------- HELPERS ---------------- */
   const $ = (s, ctx = document) => (ctx || document).querySelector(s);
