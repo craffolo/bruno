@@ -23,7 +23,7 @@ input, textarea, select { cursor: text; } */
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:#fff;font-family:"Futura",system-ui,-apple-system,"Segoe UI",Roboto,Arial;line-height:1.5;-webkit-font-smoothing:antialiased}
 #barba-wrapper,.barba-container{background:transparent;min-height:100vh}
-body.no-scroll{overflow:hidden}
+/* body.no-scroll{overflow:hidden} */
 
 /* mobile dropdown default hidden (important!) */
 .mobile-dropdown{display:none}
@@ -100,7 +100,7 @@ body.no-scroll{overflow:hidden}
 /* reduce the top padding so content starts immediately under header */
 /* main{padding-top:80px} */
 .page-title{padding:8px 20px 0;font-size:1.6rem;text-align:center}
-.page-home {margin-top:0}
+.page-home {margin-top:0;height: 100%; overflow: hidden}
 
 /* ======================================== IMMERSIVE HOME CAROUSEL ============================= */
 /* This block is scoped so it won't affect gallery/player components */
@@ -162,7 +162,7 @@ body.no-scroll{overflow:hidden}
   justify-content: center;
   pointer-events: auto;
   z-index: 11;
-  padding: 12px 20px;
+  padding: 4px;
   width: 100%;
 }
 .home-carousel-bottom .hc-meta {
@@ -383,7 +383,7 @@ body.no-scroll{overflow:hidden}
   box-shadow: 0 12px 32px rgba(var(--accent-rgb), 0.14);
 }
 .progress-wrap:hover .progress-buffer {
-  transform: translateY(-50%) scaleY(1.25);
+  transform: translateY(-50%) scaleY(1.45);
   height: 6px;
 }
 
@@ -471,9 +471,11 @@ body.no-scroll{overflow:hidden}
 
 /* ========================= RESPONSIVE (mobile layout) ========================= */
 @media (max-width:900px){
+
+  /* HEADER */
   .hamburger{display:inline-flex}
   .nav-list{display:none} /* replaced by mobile dropdown */
-  .site-header{height:64px;padding:0 14px}
+  .site-header{height:60px;padding:0 14px}
   .logo {
     /* margin: 10px; */
     padding-top: 20px;
@@ -481,25 +483,20 @@ body.no-scroll{overflow:hidden}
     width:auto;
     object-fit:contain; 
 }
-
-  main{padding-top:64px}
-  .home-carousel-bottom{padding-bottom:80px}
-
-  .mobile-dropdown {
-    position: absolute;
+ .mobile-dropdown {
+    position: fixed;
     align-items: center;
     justify-content: center;
     gap: 40px;
-    top: 70px;
+    top: 60px;
     left: 0;
     right: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.9);
     z-index:2350;
     display:none;
     padding:8px 12px;
   }
   .mobile-dropdown.open{display:flex}
-
   .mobile-dropdown a,
   .mobile-dropdown a:link,
   .mobile-dropdown a:visited {
@@ -516,9 +513,17 @@ body.no-scroll{overflow:hidden}
     box-shadow: 0 8px 28px rgba(255,221,85,0.08);
   }
 
+  /* HOME PAGE */
+  /* main{padding-top:64px} */
+  .home-carousel-bottom{padding-top:50px;top:0px; bottom: auto;}
   .bottom-overlay-title{font-size:1rem}
 
-  .progress-wrap{height:3px}
+  /* GALLERY PAGE */
+  .page-gallery{margin-top: 60px;}
+  .progress-wrap .progress-bar, .progress-wrap .progress-buffer{height:8px}
+
+  /* ABOUT PAGE */
+
 }
 
 

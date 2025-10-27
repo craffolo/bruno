@@ -2,7 +2,6 @@
 (() => {
   /* ---------------- CONFIG / TIMINGS ---------------- */
   const GALLERY_AUTOPLAY_INTERVAL_MS = 10000; // autoplay gallery player (usato se non manuale)
-  const SLIDE_CHANGE_OVERLAY_MS = 1500;
   const MOUSE_IDLE_MS = 2000; // per gallery overlay
   const MOBILE_OVERLAY_TIMEOUT_MS = 2000
 
@@ -176,7 +175,7 @@
 
   /* persistent mute preference */
   const MUTE_KEY = 'site_mute_pref';
-  function readMute() { try { return localStorage.getItem(MUTE_KEY) === '0'; } catch (e) { return false; } }
+  function readMute() { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { return false; } }
   function writeMute(v) { try { localStorage.setItem(MUTE_KEY, v ? '1' : '0'); } catch (e) {} }
 
   /* HLS management (centralized) */
@@ -206,13 +205,41 @@
 
       if (isManifest && window.Hls && Hls.isSupported()) {
         try {
-          const hls = new Hls({ enableWorker: true });
+          const hlsCfg = { enableWorker: !isMobileDevice(), // disable webworker on mobile
+                          xhrSetup: (xhr, url) => { /* keep default for now */ } };
+          const hls = new Hls(hlsCfg);
+
+          // add error handler to try recover / fallback
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            const { type, details, fatal } = data || {};
+            console.warn('[HLS] error', type, details, fatal);
+            if (fatal) {
+              try {
+                // try to recover for non-fatal recoverable errors
+                if (hls && typeof hls.recoverMediaError === 'function') {
+                  hls.recoverMediaError();
+                  return;
+                }
+              } catch (e) {}
+              // final fallback: destroy and attach as plain src (if mp4 alternative provided)
+              try {
+                const key = _hlsKeyFor(videoEl);
+                if (key && _hlsMap.has(key)) {
+                  try { hls.destroy(); } catch (e) {}
+                  _hlsMap.delete(key);
+                }
+              } catch (e) {}
+              // Let outer code decide whether to attach mp4 fallback (attachSource caller has to pass fallback)
+            }
+          });
+
           hls.attachMedia(videoEl);
           hls.on(Hls.Events.MEDIA_ATTACHED, () => {
             try { hls.loadSource(url); } catch (e) {}
           });
           _hlsMap.set(key, hls);
         } catch (e) {
+          // fallback: direct src
           try { videoEl.removeAttribute('src'); videoEl.src = url; videoEl.load(); } catch (e) {}
         }
       } else {
@@ -227,6 +254,24 @@
       videoEl.addEventListener('canplay', onCan);
       setTimeout(() => { try { videoEl.removeEventListener('canplay', onCan); } catch(e){}; resolve(); }, 4000);
     });
+  }
+
+  async function safePlay(videoEl) {
+    if (!videoEl) return false;
+    try {
+      await videoEl.play();
+      return true;
+    } catch (err) {
+      // primo tentativo fallito: prova a mutare e riprovare (utile su mobile)
+      try {
+        videoEl.muted = true;
+        await videoEl.play();
+        return true;
+      } catch (err2) {
+        console.warn('[safePlay] play failed even after mute', err2);
+        return false;
+      }
+    }
   }
 
   /* ---------------- preview helpers ---------------- */
@@ -388,6 +433,7 @@
       try { this.layerA.muted = true; } catch (e) {}
       await attachSource(this.layerA, url);
       try { this.layerA.play().catch(()=>{}); } catch(e){}
+      // try { await safePlay(this.layerA); } catch(e){}
       this._renderOverlay(meta.title || '', meta.desc || '');
     }
 
@@ -420,7 +466,7 @@
       const nxt2 = (this.index + 1) % this.slides.length;
       const preUrl = (this.slides[nxt2] && (this.slides[nxt2].hls || this.slides[nxt2].mp4 || this.slides[nxt2].src)) || '';
       const preLayer = (this.active === 'A') ? this.layerB : this.layerA;
-      attachSource(preLayer, preUrl).catch(()=>{});
+      setTimeout(()=> { attachSource(preLayer, preUrl).catch(()=>{}); }, 600);
     }
 
     destroy() {
@@ -738,9 +784,17 @@
       backLayer.muted = !!muted;
       frontLayer.muted = !!muted;
 
+      const shouldAutoplay = opts.autoplay !== false;
+
       try {
         backLayer.currentTime = 0;
-        backLayer.play().catch(()=>{});
+        // backLayer.play().catch(()=>{});
+        if (shouldAutoplay) {
+          safePlay(backLayer).then(ok => {
+            if (!ok) console.warn('[gallery] autoplay suppressed by browser');
+          });
+        }
+
         if (window.gsap) {
           backLayer.style.zIndex = 3;
           frontLayer.style.zIndex = 2;
@@ -782,7 +836,7 @@
       const nextIndex = (i + 1) % this.slides.length;
       const inactiveLayer = (this.front === 'A') ? this.layerB : this.layerA;
       const preUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src)) || '';
-      attachSource(inactiveLayer, preUrl).catch(()=>{});
+      setTimeout(()=> { attachSource(preLayer, preUrl).catch(()=>{}); }, 600);
     }
 
     _syncTitle(t) { if (this.titleEl) this.titleEl.textContent = t || ''; }
@@ -886,9 +940,9 @@
       this.playOverlay.style.display = 'flex';
       this.playOverlay.style.opacity = '1';
       const pa = this.playOverlay.querySelector('.icon-pause');
-      const ip = this.playOverlay.querySelector('.icon-play');
+      // const ip = this.playOverlay.querySelector('.icon-play');
       if (pa) { pa.style.display = 'block'; pa.style.opacity = '1'; pa.style.transform = 'translate(-50%,-50%) scale(1)'; }
-      if (ip) { ip.style.opacity = '0'; ip.style.display = 'block'; ip.style.transform = 'translate(-50%,-50%) scale(0.9)'; }
+      // if (ip) { ip.style.opacity = '0'; ip.style.display = 'block'; ip.style.transform = 'translate(-50%,-50%) scale(0.9)'; }
       if (this.topOverlay) { this.topOverlay.classList.add('paused'); this.topOverlay.style.display = 'flex'; this.topOverlay.style.opacity = '1'; }
     }
 
@@ -1024,8 +1078,8 @@
         }, 120);
       }
 
-      // Focus first grid item visually (for keyboard)
-      setTimeout(() => focusGridItem(galleryGrid, 0), 60);
+      // // Focus first grid item visually (for keyboard)
+      // setTimeout(() => focusGridItem(galleryGrid, 0), 60);
     }
 
     // determine initial category to render:
@@ -1134,7 +1188,7 @@
       container.appendChild(btn);
     });
 
-    setTimeout(() => focusGridItem(container, 0), 40);
+    // setTimeout(() => focusGridItem(container, 0), 40);
   }
 
   /* ---------------- RUN / BARBA ---------------- */

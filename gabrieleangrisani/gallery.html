@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="js/main.js" defer></script>
 </head>
-<body>
+<body class="page-gallery">
   <header class="site-header">
     <div class="brand">
       <a href="index.html"><img src="media/static/logo.png" alt="Logo" class="logo"></a>
@@ -31,7 +31,7 @@
 
   <div id="barba-wrapper">
     <div class="barba-container" data-barba="container" data-barba-namespace="gallery">
-      <main class="page-gallery">
+      <main>
         <nav class="category-nav" aria-label="Categorie video">
           <ul id="categoryList" class="category-list"></ul>
         </nav>
@@ -69,9 +69,9 @@
                   <path class="spinner-head" d="M45 25a20 20 0 0 1-20 20" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"></path>
                 </svg>
 
-                <svg class="icon-play" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+                <!-- <svg class="icon-play" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
                   <path d="M16 12v40l36-20z" fill="currentColor"></path>
-                </svg>
+                </svg> -->
 
                 <svg class="icon-pause" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true" style="display:none">
                   <rect x="18" y="12" width="8" height="40" rx="2" fill="currentColor"></rect>
