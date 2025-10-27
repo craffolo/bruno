@@ -215,13 +215,11 @@
             console.warn('[HLS] error', type, details, fatal);
             if (fatal) {
               try {
-                // try to recover for non-fatal recoverable errors
                 if (hls && typeof hls.recoverMediaError === 'function') {
                   hls.recoverMediaError();
                   return;
                 }
               } catch (e) {}
-              // final fallback: destroy and attach as plain src (if mp4 alternative provided)
               try {
                 const key = _hlsKeyFor(videoEl);
                 if (key && _hlsMap.has(key)) {
@@ -229,7 +227,6 @@
                   _hlsMap.delete(key);
                 }
               } catch (e) {}
-              // Let outer code decide whether to attach mp4 fallback (attachSource caller has to pass fallback)
             }
           });
 
@@ -239,7 +236,6 @@
           });
           _hlsMap.set(key, hls);
         } catch (e) {
-          // fallback: direct src
           try { videoEl.removeAttribute('src'); videoEl.src = url; videoEl.load(); } catch (e) {}
         }
       } else {
@@ -312,30 +308,23 @@
 
   /* ---------------- URL / routing helpers ---------------- */
   function parseGalleryHash() {
-    // Accept multiple formats:
-    // "#Category/VideoId", "#category=Cat&video=Id", "#Category", "#video=Id"
     const raw = (location.hash || '').replace(/^#/, '');
     if (!raw) return { category: null, video: null };
-    // try "Category/VideoId"
     if (raw.includes('/')) {
       const [category, ...rest] = raw.split('/');
       const video = rest.join('/');
       return { category: decodeURIComponent(category || '') || null, video: decodeURIComponent(video || '') || null };
     }
-    // try query style "category=...&video=..."
     if (raw.includes('=')) {
       const params = new URLSearchParams(raw);
       return { category: params.get('category') || null, video: params.get('video') || params.get('vid') || null };
     }
-    // try "Category" alone or "video:ID"
     if (raw.includes(':')) {
       const [k, v] = raw.split(':');
       if (k.toLowerCase() === 'video' || k.toLowerCase() === 'vid') return { category: null, video: decodeURIComponent(v || '') || null };
       return { category: decodeURIComponent(k || '') || null, video: decodeURIComponent(v || '') || null };
     }
-    // fallback: treat as category or video (try to detect video id presence)
     const single = decodeURIComponent(raw);
-    // if there's a video with this id, prefer it
     if (Array.isArray(VIDEOS) && VIDEOS.find(v => v.id === single)) return { category: null, video: single };
     return { category: single, video: null };
   }
@@ -343,6 +332,14 @@
   function isMobileDevice() {
     return ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent);
   }
+
+  /* ---------------- session helpers (to preserve state on reload) ---------------- */
+  const SESSION_CAT_KEY = 'gallery_last_category';
+  const SESSION_VIDEO_KEY = 'gallery_last_video';
+  function saveSessionCategory(cat) { try { sessionStorage.setItem(SESSION_CAT_KEY, cat || ''); } catch(e){} }
+  function readSessionCategory() { try { return sessionStorage.getItem(SESSION_CAT_KEY) || null; } catch(e){ return null; } }
+  function saveSessionVideo(vid) { try { sessionStorage.setItem(SESSION_VIDEO_KEY, vid || ''); } catch(e){} }
+  function readSessionVideo() { try { return sessionStorage.getItem(SESSION_VIDEO_KEY) || null; } catch(e){ return null; } }
 
   /* ---------------- Menu ---------------- */
   function initMenu(context = document) {
@@ -433,7 +430,6 @@
       try { this.layerA.muted = true; } catch (e) {}
       await attachSource(this.layerA, url);
       try { this.layerA.play().catch(()=>{}); } catch(e){}
-      // try { await safePlay(this.layerA); } catch(e){}
       this._renderOverlay(meta.title || '', meta.desc || '');
     }
 
@@ -535,10 +531,8 @@
     }
 
     _ensureUnifiedOverlay() {
-      // if no wrapper gallery-overlay present, create one and move top, play, bottom into it
       if (!this.galleryOverlay) {
         this.galleryOverlay = create('div', { class: 'gallery-overlay' }, '');
-        // try to find and move existing overlay parts into it
         const top = this.container.querySelector('.top-overlay');
         const play = this.container.querySelector('.play-overlay');
         const bottom = this.container.querySelector('.bottom-overlay') || this.container.querySelector('.carousel-bottom');
@@ -547,7 +541,6 @@
         if (play) this.galleryOverlay.appendChild(play);
         if (bottom) this.galleryOverlay.appendChild(bottom);
         if (bar) this.galleryOverlay.appendChild(bar);
-        // append wrapper into container
         this.container.appendChild(this.galleryOverlay);
       }
       // ensure pointer-events on child controls are active
@@ -566,7 +559,6 @@
       this.galleryOverlay.classList.add('visible');
       this.galleryOverlay.classList.remove('hidden');
       this._overlayVisible = true;
-      // ensure play/top/bottom visible states (class based; CSS must handle transitions)
       if (this.playOverlay) this.playOverlay.style.opacity = '1';
       if (this.topOverlay) this.topOverlay.style.opacity = '1';
       if (this.bottomOverlay) this.bottomOverlay.style.opacity = '1';
@@ -584,7 +576,6 @@
 
     _startOverlayHideTimer(timeout = MOUSE_IDLE_MS) {
       if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; }
-      // on mobile use mobile timeout
       const useTimeout = isMobileDevice() ? MOBILE_OVERLAY_TIMEOUT_MS : timeout;
       this._overlayTimer = setTimeout(() => {
         this._hideGalleryOverlay();
@@ -599,7 +590,6 @@
     }
 
     _onTouchTap(ev) {
-      // toggle overlay on mobile tap
       if (!isMobileDevice()) {
         ev.preventDefault();
         ev.stopPropagation();
@@ -629,8 +619,7 @@
     }
 
     _onVideoEnded() {
-      // normal autoplay sequence when gallery is autoplaying (not when a single video opened via URL)
-      if (this.isManual) return; // user / single-video mode -> don't advance
+      if (this.isManual) return;
       this.next();
     }
 
@@ -647,21 +636,35 @@
       if (this.topFsBtn) {
         this.topFsBtn.addEventListener('click', (e) => {
           e.stopPropagation();
+          // fullscreen action must be directly in user gesture — this is a click handler so ok
           this.toggleFullscreen();
-          // keep icon visible — toggling classes only, do not hide images
           this.updateFullscreenButton();
         });
       }
       ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(ev => document.addEventListener(ev, ()=> this.updateFullscreenButton()));
     }
 
+    // Improved fullscreen handling for various mobile/desktop browsers
     toggleFullscreen() {
-      const el = this.container;
-      if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-        if (el.requestFullscreen) el.requestFullscreen().catch(()=>{}); else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      } else {
-        if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
-      }
+      try {
+        // Prefer calling fullscreen on the front video element on iOS (webkitEnterFullscreen)
+        const frontVideo = this._getFrontLayer();
+        if (frontVideo && typeof frontVideo.webkitEnterFullscreen === 'function') {
+          // iOS native fullscreen on video element
+          try { frontVideo.webkitEnterFullscreen(); return; } catch(e){ /* fallback below */ }
+        }
+        // Standard fullscreen on container (Chrome/Firefox/Android)
+        const el = this.container || frontVideo;
+        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+          if (el.requestFullscreen) { el.requestFullscreen().catch(()=>{}); }
+          else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); }
+          else if (el.mozRequestFullScreen) { el.mozRequestFullScreen(); }
+          else if (el.msRequestFullscreen) { el.msRequestFullscreen(); }
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+      } catch (e) { console.warn('[fullscreen] failed', e); }
       setTimeout(()=> this.updateFullscreenButton(), 250);
     }
 
@@ -671,7 +674,6 @@
       this.topFsBtn.classList.toggle('is-full', isFull);
       this.topFsBtn.setAttribute('aria-pressed', isFull ? 'true' : 'false');
       this.topFsBtn.setAttribute('aria-label', isFull ? 'Esci schermo intero' : 'Attiva schermo intero');
-      // ensure img/icon remains visible: don't manipulate children display here
     }
 
     _wireControls() {
@@ -741,7 +743,6 @@
     resetAutoplay() {
       this.clearAutoplay();
       if (this.isManual) return;
-      // fallback timer (not primary); normal advance is triggered on ended event
       this.autoplayTimer = setInterval(() => { this.next(); }, GALLERY_AUTOPLAY_INTERVAL_MS);
     }
 
@@ -784,12 +785,13 @@
       backLayer.muted = !!muted;
       frontLayer.muted = !!muted;
 
-      const shouldAutoplay = opts.autoplay !== false;
+      // Decide autoplay: opts.autoplay explicitly true/false preferred, fallback to true
+      const shouldAutoplay = typeof opts.autoplay === 'boolean' ? opts.autoplay : true;
 
       try {
         backLayer.currentTime = 0;
-        // backLayer.play().catch(()=>{});
         if (shouldAutoplay) {
+          // try to play (safePlay handles mute fallback)
           safePlay(backLayer).then(ok => {
             if (!ok) console.warn('[gallery] autoplay suppressed by browser');
           });
@@ -821,6 +823,9 @@
       this.currentIndex = i;
       this.resetAutoplay();
       this._startProgressLoop();
+
+      // Save last played video to session so refresh keeps it
+      try { saveSessionVideo(meta.id); } catch(e){}
     }
 
     _onAfterPlaySwitch(i, meta) {
@@ -836,7 +841,7 @@
       const nextIndex = (i + 1) % this.slides.length;
       const inactiveLayer = (this.front === 'A') ? this.layerB : this.layerA;
       const preUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src)) || '';
-      setTimeout(()=> { attachSource(preLayer, preUrl).catch(()=>{}); }, 600);
+      setTimeout(()=> { attachSource(inactiveLayer, preUrl).catch(()=>{}); }, 600);
     }
 
     _syncTitle(t) { if (this.titleEl) this.titleEl.textContent = t || ''; }
@@ -886,7 +891,8 @@
       const playerArea = this.container.querySelector('.gallery-player') || this.container;
       if (!playerArea) return;
       playerArea.addEventListener('click', (ev) => {
-        if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn')) return;
+        // ignore clicks that originate from progress controls or control buttons (they should stopPropagation)
+        if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn') || ev.target.closest('.top-btn') ) return;
         const front = this._getFrontLayer();
         if (!front) return;
         if (front.paused) {
@@ -906,6 +912,9 @@
     _bindProgressInteractions() {
       const wrap = this.progressWrap;
       if (!wrap) return;
+      // prevent clicks on progress from bubbling to playerArea (which toggles play/pause)
+      wrap.addEventListener('click', (ev) => { ev.stopPropagation(); });
+
       let dragging = false; let pointerId = null;
       const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
 
@@ -918,14 +927,27 @@
         if (dur > 0) { try { front.currentTime = frac * dur; } catch(e){} if (this.progressBar) this.progressBar.style.width = (frac*100) + '%'; }
       };
 
+      // pointerdown needs passive:false so preventDefault can work on mobile
       wrap.addEventListener('pointerdown', (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        dragging = true; pointerId = ev.pointerId; wrap.setPointerCapture?.(pointerId); wrap.classList.add('dragging');
+        ev.preventDefault && ev.preventDefault();
+        ev.stopPropagation();
+        dragging = true; pointerId = ev.pointerId; try { wrap.setPointerCapture?.(pointerId); } catch(e){}
+        wrap.classList.add('dragging');
         this._onUserInteraction(); this.clearAutoplay(); this._stopProgressLoop(); updateSeekFromEvent(ev);
-      });
-      wrap.addEventListener('pointermove', (ev) => { if (!dragging) return; updateSeekFromEvent(ev); });
-      const stopDrag = (ev) => { if (!dragging) return; dragging = false; try { wrap.releasePointerCapture?.(pointerId); } catch(e){} wrap.classList.remove('dragging'); pointerId = null; const front = this._getFrontLayer(); if (front && !front.paused) this._startProgressLoop(); };
-      wrap.addEventListener('pointerup', (ev) => { ev.preventDefault(); ev.stopPropagation(); stopDrag(ev); });
+      }, { passive: false });
+
+      wrap.addEventListener('pointermove', (ev) => { if (!dragging) return; updateSeekFromEvent(ev); }, { passive: true });
+
+      const stopDrag = (ev) => {
+        if (!dragging) return;
+        dragging = false;
+        try { wrap.releasePointerCapture?.(pointerId); } catch(e){}
+        wrap.classList.remove('dragging');
+        pointerId = null;
+        const front = this._getFrontLayer();
+        if (front && !front.paused) this._startProgressLoop();
+      };
+      wrap.addEventListener('pointerup', (ev) => { ev.preventDefault && ev.preventDefault(); ev.stopPropagation(); stopDrag(ev); }, { passive: false });
       wrap.addEventListener('pointercancel', stopDrag);
       wrap.addEventListener('lostpointercapture', stopDrag);
     }
@@ -940,9 +962,7 @@
       this.playOverlay.style.display = 'flex';
       this.playOverlay.style.opacity = '1';
       const pa = this.playOverlay.querySelector('.icon-pause');
-      // const ip = this.playOverlay.querySelector('.icon-play');
       if (pa) { pa.style.display = 'block'; pa.style.opacity = '1'; pa.style.transform = 'translate(-50%,-50%) scale(1)'; }
-      // if (ip) { ip.style.opacity = '0'; ip.style.display = 'block'; ip.style.transform = 'translate(-50%,-50%) scale(0.9)'; }
       if (this.topOverlay) { this.topOverlay.classList.add('paused'); this.topOverlay.style.display = 'flex'; this.topOverlay.style.opacity = '1'; }
     }
 
@@ -967,7 +987,6 @@
       destroyHlsForEl(this.layerA);
       destroyHlsForEl(this.layerB);
       if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; }
-      // remove event listeners if needed (not fully unbound here for brevity)
     }
   }
 
@@ -997,15 +1016,9 @@
       const li = create('li');
       const btn = create('button', {}, category);
       btn.classList.add('category-item');
-      if (idx === 0) {
-        btn.classList.toggle('active', true);
-        const cat = category || '';
-        const newHash = `#${encodeURIComponent(cat)}`;
-        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
-      }
       btn.setAttribute('data-category', category);
       btn.setAttribute('role', 'tab');
-      btn.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
+      btn.setAttribute('aria-selected', 'false');
       btn.addEventListener('click', () => {
         catList.querySelectorAll('button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
         btn.classList.add('active');
@@ -1013,13 +1026,25 @@
         const cat = category || '';
         const newHash = `#${encodeURIComponent(cat)}`;
         history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
+        try { saveSessionCategory(cat); saveSessionVideo(''); } catch(e){}
         renderCategory(category, { fromHash: false });
       });
       li.appendChild(btn);
       catList.appendChild(li);
     });
 
-    // renderCategory now accepts options: { startVideoId, noAutoplay (boolean) }
+    function getNavigationType() {
+      try {
+        const navEntries = performance.getEntriesByType && performance.getEntriesByType('navigation');
+        if (navEntries && navEntries.length) return navEntries[0].type || 'navigate';
+        if (performance.navigation && typeof performance.navigation.type !== 'undefined') {
+          return performance.navigation.type === 1 ? 'reload' : (performance.navigation.type === 2 ? 'back_forward' : 'navigate');
+        }
+      } catch(e){}
+      return 'navigate';
+    }
+    const navigationType = getNavigationType();
+
     async function renderCategory(category, opts = {}) {
       const slides = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
       if (!slides.length) {
@@ -1031,82 +1056,97 @@
         const titleEl = section.querySelector('#galleryTitle');
         if (titleEl) titleEl.textContent = 'Nessun video';
         galleryGrid.innerHTML = `<div style="padding:28px;color:var(--muted);text-align:center">Nessun video per la categoria "${escapeHtml(category)}"</div>`;
+        try { saveSessionCategory(category); saveSessionVideo(''); } catch(e){}
         return;
       }
 
-      // create or update player
       if (galleryPlayer) {
         galleryPlayer.setSlides(slides);
         galleryPlayer.isManual = false;
-        // don't immediately play here — we will decide based on opts
       } else {
         galleryPlayer = new GalleryPlayer({ container: section, slides });
       }
 
-      // update mute state
       if (galleryPlayer) galleryPlayer.updateMuteButton();
 
       populateGrid(galleryGrid, category);
 
-      // if called from hash and video specified -> select that video and DON'T start autoplay
+      try { saveSessionCategory(category); } catch(e){}
+
+      // Decide autoplay policy for mobile: only autoplay on mobile if muted preference is set
+      const allowAutoOnMobile = readMute(); // only autoplay on mobile if muted true
       if (opts.startVideoId) {
-        // mark manual mode so autoplay won't interfere
         galleryPlayer.isManual = true;
-        // find index in slides
         const idx = slides.findIndex(s => s.id === opts.startVideoId);
         if (idx >= 0) {
-          // small delay to allow gallery DOM render & player ready
           setTimeout(() => {
             try {
-              galleryPlayer.playIndex(idx, { userTriggered: true });
-              // ensure overlays shown briefly then hide
+              galleryPlayer.playIndex(idx, { userTriggered: true, autoplay: false });
               galleryPlayer._showGalleryOverlayTransient?.();
             } catch (e) {}
           }, 120);
-        } else {
-          // video id not found in this category -> do nothing special, maybe navigate fallback
         }
       } else {
-        // normal category view: start autoplay behavior (first video)
-        // set manual=false to allow autoplay
+        // normal category view: start autoplay behavior (first video) according to mobile rules
         galleryPlayer.isManual = false;
-        // play first after slight delay so DOM finishes
+        // compute autoplay: if mobile -> only if muted preference; if desktop -> true
+        const autoplay = isMobileDevice() ? !!allowAutoOnMobile : true;
         setTimeout(() => {
           try {
-            galleryPlayer.playIndex(0);
+            // pass explicit autoplay flag (true/false)
+            galleryPlayer.playIndex(0, { autoplay: !!autoplay });
           } catch (e) {}
         }, 120);
       }
-
-      // // Focus first grid item visually (for keyboard)
-      // setTimeout(() => focusGridItem(galleryGrid, 0), 60);
     }
 
-    // determine initial category to render:
+    // Determine initial category...
     let initialCategory = CATEGORIES[0];
+    const sessionCat = readSessionCategory();
+    const sessionVid = readSessionVideo();
+
     if (hashInfo.category) {
-      // try to match a category (case-sensitive as your data uses)
       if (CATEGORIES.includes(hashInfo.category)) initialCategory = hashInfo.category;
       else {
-        // try case-insensitive match
         const found = CATEGORIES.find(c => c.toLowerCase() === (hashInfo.category || '').toLowerCase());
         if (found) initialCategory = found;
       }
+    } else if (hashInfo.video) {
+      const vidMeta = VIDEOS.find(v => v.id === hashInfo.video);
+      if (vidMeta && vidMeta.category) initialCategory = vidMeta.category;
     } else {
-      const activeBtn = catList.querySelector('button.active');
-      if (activeBtn) initialCategory = activeBtn.getAttribute('data-category') || CATEGORIES[0];
+      if (navigationType === 'reload' && sessionCat) {
+        if (CATEGORIES.includes(sessionCat)) initialCategory = sessionCat;
+      } else if (sessionCat) {
+        if (CATEGORIES.includes(sessionCat)) initialCategory = sessionCat;
+      } else {
+        initialCategory = CATEGORIES[0];
+        if (navigationType === 'navigate') {
+          const newHash = `#${encodeURIComponent(initialCategory)}`;
+          history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
+        }
+      }
     }
 
-    // set initial button active visually
     setTimeout(() => {
       const btnToFocus = catList.querySelector(`button[data-category="${initialCategory}"]`) || catList.querySelector('button');
-      if (btnToFocus) { try { btnToFocus.focus({ preventScroll: true }); } catch(e) { btnToFocus.focus(); } }
+      if (btnToFocus) { 
+        try { btnToFocus.focus({ preventScroll: true }); } catch(e) { btnToFocus.focus(); }
+        catList.querySelectorAll('button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+        btnToFocus.classList.add('active');
+        btnToFocus.setAttribute('aria-selected','true');
+      }
     }, 40);
 
-    // render initial category with hash-driven options
     if (hashInfo.video) {
-      // render category but start specific video (no autoplay)
       renderCategory(initialCategory, { startVideoId: hashInfo.video, fromHash: true });
+    } else if (navigationType === 'reload' && sessionVid) {
+      const vidMeta = VIDEOS.find(v => v.id === sessionVid);
+      if (vidMeta && vidMeta.category === initialCategory) {
+        renderCategory(initialCategory, { startVideoId: sessionVid, fromHash: false });
+      } else {
+        renderCategory(initialCategory, { fromHash: false });
+      }
     } else {
       renderCategory(initialCategory, { fromHash: !!hashInfo.category });
     }
@@ -1175,20 +1215,17 @@
           galleryPlayer.playIndex(idx, { userTriggered: true });
         }
         focusGridItem(container, idx);
-        // update URL hash to reflect selection
         const cat = category || '';
         const newHash = `#${encodeURIComponent(cat)}/${encodeURIComponent(v.id)}`;
         history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
+        try { saveSessionCategory(cat); saveSessionVideo(v.id); } catch(e){}
       });
 
-      // expose data-id for linking from home carousel
       btn.setAttribute('data-id', v.id);
       btn.setAttribute('data-index', idx);
 
       container.appendChild(btn);
     });
-
-    // setTimeout(() => focusGridItem(container, 0), 40);
   }
 
   /* ---------------- RUN / BARBA ---------------- */
