@@ -103,7 +103,7 @@
     //Music videos
     { 
       id: 'cast_ride_or_die', 
-      hls: 'blank', 
+      hls: 'https://player.mux.com/IfZvbyfFzm7OGwsxDAaSJ2h4YE27KxB2imRlDiYdVgI', 
       mp4: 'blank', 
       title: 'Cast', 
       desc: 'Ride or Die', 
