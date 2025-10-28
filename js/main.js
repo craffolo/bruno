@@ -309,7 +309,7 @@
       poster: 'statics/covers/fitness/the_buff_biologist_motivational_reel.png',
       title: 'The Buff biologist', 
       desc: 'Motivational reel', 
-      category: 'Fitness' 
+      categories: ['Fitness', 'Social'] 
     },
     { 
       id: 'miriamssfit_e_gianzcoach_workout_compilation', 
@@ -318,7 +318,7 @@
       poster: 'statics/covers/fitness/miriamssfit_e_gianzcoach_workout_compilation.png',
       title: 'Miriamssfit e Gianzcoach', 
       desc: 'Workout compilation', 
-      category: 'Fitness' 
+      categories: ['Fitness', 'Social'] 
     },
 
     //Corporate
@@ -450,6 +450,15 @@
       }
     }
   }
+
+  // Helper: assicurati che l'entry abbia .categories come array
+  function normCategories(video) {
+    if (!video) return [];
+    if (Array.isArray(video.categories)) return video.categories;
+    if (video.category && typeof video.category === 'string') return [video.category];
+    return [];
+  }
+
 
   /* ---------------- preview helpers ---------------- */
   const _activePreviews = new Set();
@@ -961,31 +970,46 @@
       const backLayer = (this.front === 'A') ? this.layerB : this.layerA;
       const frontLayer = (this.front === 'A') ? this.layerA : this.layerB;
 
+      // prepare backLayer: stop any previous source but DO NOT hide front yet
       try { backLayer.pause(); } catch (e) {}
-      try { backLayer.removeAttribute('src'); } catch (e) {}
+      try { destroyHlsForEl(backLayer); backLayer.removeAttribute('src'); } catch (e) {}
 
       const sourceUrl = meta.hls || meta.mp4 || meta.src || '';
-      await attachSource(backLayer, sourceUrl);
+      // attachSource resolves on canplay — good for seamless playback
+      try {
+        await attachSource(backLayer, sourceUrl);
+      } catch (e) {
+        console.warn('[gallery] attachSource failed', e);
+      }
 
+      // ensure mute state
       const muted = readMute();
       backLayer.muted = !!muted;
       frontLayer.muted = !!muted;
 
-      // Decide autoplay: opts.autoplay explicitly true/false preferred, fallback to true
-      const shouldAutoplay = typeof opts.autoplay === 'boolean' ? opts.autoplay : true;
+      // set starting time to 0 (or keep preserved if you want resume behavior)
+      try { backLayer.currentTime = 0; } catch(e){}
 
+      // Attempt to play the back layer — wait for it to actually start playing before crossfading.
+      const playOk = await safePlay(backLayer);
+      // If play fails, leave frontLayer as is and bail
+      if (!playOk) {
+        console.warn('[gallery] safePlay failed for backLayer, aborting seamless switch');
+        // still update currentIndex so UI reflects selection, but do not perform crossfade
+        this.currentIndex = i;
+        this._syncTitle(meta.title);
+        try { saveSessionVideo(meta.id); } catch(e){}
+        return;
+      }
+
+      // Now both backLayer is playing and frontLayer still visible: perform crossfade smoothly
       try {
-        backLayer.currentTime = 0;
-        if (shouldAutoplay) {
-          // try to play (safePlay handles mute fallback)
-          safePlay(backLayer).then(ok => {
-            if (!ok) console.warn('[gallery] autoplay suppressed by browser');
-          });
-        }
+        // ensure stacking order (back on top)
+        backLayer.style.zIndex = 3;
+        frontLayer.style.zIndex = 2;
 
         if (window.gsap) {
-          backLayer.style.zIndex = 3;
-          frontLayer.style.zIndex = 2;
+          // gsap crossfade: bring backLayer opacity to 1 while fading frontLayer to 0
           gsap.fromTo(backLayer, { opacity: 0, scale: 1.02 }, { opacity: 1, scale: 1, duration: 0.45, ease: 'power2.out' });
           gsap.to(frontLayer, { opacity: 0, scale: 0.98, duration: 0.45, ease: 'power2.out', onComplete: () => {
             try { frontLayer.pause(); frontLayer.currentTime = 0; } catch(e){}
@@ -1002,6 +1026,8 @@
           this._onAfterPlaySwitch(i, meta);
         }
       } catch (e) {
+        // fallback: if animation fails, swap immediately
+        try { frontLayer.pause(); frontLayer.currentTime = 0; } catch(e){}
         this.front = (this.front === 'A') ? 'B' : 'A';
         this._onAfterPlaySwitch(i, meta);
       }
@@ -1013,6 +1039,7 @@
       // Save last played video to session so refresh keeps it
       try { saveSessionVideo(meta.id); } catch(e){}
     }
+
 
     _onAfterPlaySwitch(i, meta) {
       this._syncTitle(meta.title);
@@ -1027,7 +1054,10 @@
       const nextIndex = (i + 1) % this.slides.length;
       const inactiveLayer = (this.front === 'A') ? this.layerB : this.layerA;
       const preUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src)) || '';
-      setTimeout(()=> { attachSource(inactiveLayer, preUrl).catch(()=>{}); }, 600);
+      if (preUrl) {
+        // non attendere, ma avvia attachSource in background per far arrivare il canplay prima possibile
+        setTimeout(()=> { attachSource(inactiveLayer, preUrl).catch(()=>{}); }, 260);
+      }
     }
 
     _syncTitle(t) { if (this.titleEl) this.titleEl.textContent = t || ''; }
@@ -1186,17 +1216,23 @@
     homeCarousel = new HomeCarousel({ container: section, slides });
   }
 
- /* ---------------- populateGrid (preview logic) - UPDATED to accept filters ---------------- */
+  /* ---------------- populateGrid (preview logic) - UPDATED to accept filters ---------------- */
   function populateGrid(container, categories = null) {
     stopAllPreviewsExcept(null);
     container.innerHTML = '';
+
+    // normalizza categories selezionate
+    const sel = Array.isArray(categories) ? categories.slice() : [];
+    // se nessun filtro -> prendi tutti i video
     let items;
-    if (!Array.isArray(categories) || categories.length === 0) {
-      // no filters -> all videos
+    if (!sel.length) {
       items = Array.isArray(VIDEOS) ? VIDEOS.slice() : [];
     } else {
-      // filter by categories (case-sensitive match to your data)
-      items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => categories.includes(v.category)) : [];
+      // filter: video is included if ANY of its categories is in sel (OR logic)
+      items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => {
+        const vcats = normCategories(v);
+        return vcats.some(vc => sel.includes(vc));
+      }) : [];
     }
 
     if (!items.length) {
@@ -1260,19 +1296,24 @@
         if (window.galleryPlayer) {
           window.galleryPlayer.isManual = true;
           // need to determine index in the current filtered list for playIndex
-          const currentItems = (!Array.isArray(categories) || categories.length === 0) ? VIDEOS.slice() : VIDEOS.filter(vv => categories.includes(vv.category));
+          const currentItems = (!Array.isArray(sel) || sel.length === 0) ? VIDEOS.slice() : VIDEOS.filter(vv => {
+            const vvcats = normCategories(vv);
+            return vvcats.some(vc => sel.includes(vc));
+          });
           const idxInSlides = currentItems.findIndex(s => s.id === v.id);
-          try { window.galleryPlayer.playIndex(idxInSlides, { userTriggered: true }); } catch(e){}
+          if (idxInSlides >= 0) {
+            window.galleryPlayer.playIndex(idxInSlides, { userTriggered: true });
+          }
         }
         focusGridItem(container, idx);
         // Update URL hash: use query style for filters + video
-        const cats = Array.isArray(categories) && categories.length ? categories.join(',') : '';
+        const cats = Array.isArray(sel) && sel.length ? sel.join(',') : '';
         const params = new URLSearchParams();
         if (cats) params.set('cats', cats);
         params.set('video', v.id);
         const newHash = params.toString();
         history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + (newHash ? ('#' + newHash) : ''));
-        try { saveSessionFilters(categories || []); saveSessionVideo(v.id); } catch(e){}
+        try { saveSessionFilters(sel || []); saveSessionVideo(v.id); } catch(e){}
       });
 
       btn.setAttribute('data-id', v.id);
@@ -1281,6 +1322,7 @@
       container.appendChild(btn);
     });
   }
+
 
   /* ---------------- initGallery (REWRITTEN to use filters) ---------------- */
   function initGallery(context = document) {
