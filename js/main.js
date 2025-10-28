@@ -344,7 +344,7 @@
       id: 'studio_notarile_dausilio', 
       hls: 'media/works/commercials/studio_notarile_dausilio/index.m3u8', 
       //preview: '',
-      poster: 'statics/covers/commercials/studio_notarile_dausilio.png',
+      poster: 'statics/covers/commercials/studio_notarile_dausilio.jpg',
       title: "Studio Notarile D'Ausilio", 
       desc: 'Come a casa, anche nei momenti importanti', 
       category: 'Commercials' 
