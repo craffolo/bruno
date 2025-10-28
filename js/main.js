@@ -409,47 +409,25 @@
 
       if (isManifest && window.Hls && Hls.isSupported()) {
         try {
-          const hlsCfg = { enableWorker: !isMobileDevice(), // disable webworker on mobile
-                          xhrSetup: (xhr, url) => { /* keep default for now */ } };
+          const hlsCfg = { enableWorker: !isMobileDevice(), xhrSetup: (xhr, url) => {} };
           const hls = new Hls(hlsCfg);
-
-          // add error handler to try recover / fallback
           hls.on(Hls.Events.ERROR, (event, data) => {
             const { type, details, fatal } = data || {};
             console.warn('[HLS] error', type, details, fatal);
             if (fatal) {
-              try {
-                if (hls && typeof hls.recoverMediaError === 'function') {
-                  hls.recoverMediaError();
-                  return;
-                }
-              } catch (e) {}
-              try {
-                const key = _hlsKeyFor(videoEl);
-                if (key && _hlsMap.has(key)) {
-                  try { hls.destroy(); } catch (e) {}
-                  _hlsMap.delete(key);
-                }
-              } catch (e) {}
+              try { if (hls && typeof hls.recoverMediaError === 'function') { hls.recoverMediaError(); return; } } catch(e){}
+              try { const key = _hlsKeyFor(videoEl); if (key && _hlsMap.has(key)) { try { hls.destroy(); } catch(e){} _hlsMap.delete(key); } } catch(e){}
             }
           });
-
           hls.attachMedia(videoEl);
-          hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-            try { hls.loadSource(url); } catch (e) {}
-          });
+          hls.on(Hls.Events.MEDIA_ATTACHED, () => { try { hls.loadSource(url); } catch (e) {} });
           _hlsMap.set(key, hls);
-        } catch (e) {
-          try { videoEl.removeAttribute('src'); videoEl.src = url; videoEl.load(); } catch (e) {}
-        }
+        } catch (e) { try { videoEl.removeAttribute('src'); videoEl.src = url; videoEl.load(); } catch (e) {} }
       } else {
         try { videoEl.removeAttribute('src'); videoEl.src = url; videoEl.load(); } catch (e) {}
       }
 
-      const onCan = () => {
-        try { videoEl.removeEventListener('canplay', onCan); } catch (e) {}
-        resolve();
-      };
+      const onCan = () => { try { videoEl.removeEventListener('canplay', onCan); } catch (e) {} ; resolve(); };
       if (videoEl.readyState >= 3) return resolve();
       videoEl.addEventListener('canplay', onCan);
       setTimeout(() => { try { videoEl.removeEventListener('canplay', onCan); } catch(e){}; resolve(); }, 4000);
@@ -462,7 +440,6 @@
       await videoEl.play();
       return true;
     } catch (err) {
-      // primo tentativo fallito: prova a mutare e riprovare (utile su mobile)
       try {
         videoEl.muted = true;
         await videoEl.play();
@@ -512,36 +489,41 @@
 
   /* ---------------- URL / routing helpers ---------------- */
   function parseGalleryHash() {
+    // New: support cats=Cat1,Cat2 and video=ID, or old formats
     const raw = (location.hash || '').replace(/^#/, '');
-    if (!raw) return { category: null, video: null };
-    if (raw.includes('/')) {
-      const [category, ...rest] = raw.split('/');
-      const video = rest.join('/');
-      return { category: decodeURIComponent(category || '') || null, video: decodeURIComponent(video || '') || null };
-    }
+    if (!raw) return { categories: null, video: null };
+    // 1) query-style: cats=...&video=...
     if (raw.includes('=')) {
       const params = new URLSearchParams(raw);
-      return { category: params.get('category') || null, video: params.get('video') || params.get('vid') || null };
+      const cats = params.get('cats') || params.get('categories') || params.get('category') || null;
+      const video = params.get('video') || params.get('vid') || null;
+      const catsArr = cats ? cats.split(',').map(s => decodeURIComponent(s).trim()).filter(Boolean) : null;
+      return { categories: catsArr, video: video ? decodeURIComponent(video) : null };
     }
-    if (raw.includes(':')) {
-      const [k, v] = raw.split(':');
-      if (k.toLowerCase() === 'video' || k.toLowerCase() === 'vid') return { category: null, video: decodeURIComponent(v || '') || null };
-      return { category: decodeURIComponent(k || '') || null, video: decodeURIComponent(v || '') || null };
+    // 2) slash format: "Cat1,Cat2/VideoId" or "Category/VideoId" or "Category"
+    if (raw.includes('/')) {
+      const [catsPart, ...rest] = raw.split('/');
+      const video = rest.join('/');
+      // catsPart could be "Cat1,Cat2" or a single Category
+      const catsArr = catsPart.includes(',') ? catsPart.split(',').map(s => decodeURIComponent(s).trim()).filter(Boolean) : [decodeURIComponent(catsPart).trim()];
+      return { categories: catsArr.filter(Boolean), video: decodeURIComponent(video || '').trim() || null };
     }
+    // 3) single token: could be a video id or a single category
     const single = decodeURIComponent(raw);
-    if (Array.isArray(VIDEOS) && VIDEOS.find(v => v.id === single)) return { category: null, video: single };
-    return { category: single, video: null };
+    if (Array.isArray(VIDEOS) && VIDEOS.find(v => v.id === single)) return { categories: null, video: single };
+    // otherwise treat as single category
+    return { categories: [single], video: null };
   }
 
   function isMobileDevice() {
     return ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent);
   }
 
-  /* ---------------- session helpers (to preserve state on reload) ---------------- */
-  const SESSION_CAT_KEY = 'gallery_last_category';
+  /* ---------------- session helpers (to preserve filters) ---------------- */
+  const SESSION_FILTERS_KEY = 'gallery_last_filters';
   const SESSION_VIDEO_KEY = 'gallery_last_video';
-  function saveSessionCategory(cat) { try { sessionStorage.setItem(SESSION_CAT_KEY, cat || ''); } catch(e){} }
-  function readSessionCategory() { try { return sessionStorage.getItem(SESSION_CAT_KEY) || null; } catch(e){ return null; } }
+  function saveSessionFilters(arr) { try { sessionStorage.setItem(SESSION_FILTERS_KEY, (Array.isArray(arr) ? arr.join(',') : (arr || ''))); } catch(e){} }
+  function readSessionFilters() { try { const v = sessionStorage.getItem(SESSION_FILTERS_KEY); return v ? v.split(',').map(s=>s.trim()).filter(Boolean) : null; } catch(e){ return null; } }
   function saveSessionVideo(vid) { try { sessionStorage.setItem(SESSION_VIDEO_KEY, vid || ''); } catch(e){} }
   function readSessionVideo() { try { return sessionStorage.getItem(SESSION_VIDEO_KEY) || null; } catch(e){ return null; } }
 
@@ -1204,165 +1186,26 @@
     homeCarousel = new HomeCarousel({ container: section, slides });
   }
 
-  /* ---------------- Gallery init ---------------- */
-  let galleryPlayer = null;
-  function initGallery(context = document) {
-    const catList = context.querySelector('#categoryList');
-    const galleryGrid = context.querySelector('#galleryGrid');
-    const section = context.querySelector('#galleryCarouselSection');
-    if (!catList || !galleryGrid || !section) return;
-
-    // parse URL hash for category/video
-    const hashInfo = parseGalleryHash(); // { category, video }
-
-    catList.innerHTML = '';
-    CATEGORIES.forEach((category, idx) => {
-      const li = create('li');
-      const btn = create('button', {}, category);
-      btn.classList.add('category-item');
-      btn.setAttribute('data-category', category);
-      btn.setAttribute('role', 'tab');
-      btn.setAttribute('aria-selected', 'false');
-      btn.addEventListener('click', () => {
-        catList.querySelectorAll('button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
-        btn.classList.add('active');
-        btn.setAttribute('aria-selected','true');
-        const cat = category || '';
-        const newHash = `#${encodeURIComponent(cat)}`;
-        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
-        try { saveSessionCategory(cat); saveSessionVideo(''); } catch(e){}
-        renderCategory(category, { fromHash: false });
-      });
-      li.appendChild(btn);
-      catList.appendChild(li);
-    });
-
-    function getNavigationType() {
-      try {
-        const navEntries = performance.getEntriesByType && performance.getEntriesByType('navigation');
-        if (navEntries && navEntries.length) return navEntries[0].type || 'navigate';
-        if (performance.navigation && typeof performance.navigation.type !== 'undefined') {
-          return performance.navigation.type === 1 ? 'reload' : (performance.navigation.type === 2 ? 'back_forward' : 'navigate');
-        }
-      } catch(e){}
-      return 'navigate';
-    }
-    const navigationType = getNavigationType();
-
-    async function renderCategory(category, opts = {}) {
-      const slides = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
-      if (!slides.length) {
-        if (galleryPlayer) galleryPlayer.destroy();
-        const layerA = section.querySelector('.gallery-video.layer-a');
-        const layerB = section.querySelector('.gallery-video.layer-b');
-        if (layerA) { layerA.removeAttribute('src'); layerA.load?.(); layerA.style.opacity = 0; }
-        if (layerB) { layerB.removeAttribute('src'); layerB.load?.(); layerB.style.opacity = 0; }
-        const titleEl = section.querySelector('#galleryTitle');
-        if (titleEl) titleEl.textContent = 'Nessun video';
-        galleryGrid.innerHTML = `<div style="padding:28px;color:var(--muted);text-align:center">Nessun video per la categoria "${escapeHtml(category)}"</div>`;
-        try { saveSessionCategory(category); saveSessionVideo(''); } catch(e){}
-        return;
-      }
-
-      if (galleryPlayer) {
-        galleryPlayer.setSlides(slides);
-        galleryPlayer.isManual = false;
-      } else {
-        galleryPlayer = new GalleryPlayer({ container: section, slides });
-      }
-
-      if (galleryPlayer) galleryPlayer.updateMuteButton();
-
-      populateGrid(galleryGrid, category);
-
-      try { saveSessionCategory(category); } catch(e){}
-
-      // Decide autoplay policy for mobile: only autoplay on mobile if muted preference is set
-      const allowAutoOnMobile = readMute(); // only autoplay on mobile if muted true
-      if (opts.startVideoId) {
-        galleryPlayer.isManual = true;
-        const idx = slides.findIndex(s => s.id === opts.startVideoId);
-        if (idx >= 0) {
-          setTimeout(() => {
-            try {
-              galleryPlayer.playIndex(idx, { userTriggered: true, autoplay: false });
-              galleryPlayer._showGalleryOverlayTransient?.();
-            } catch (e) {}
-          }, 120);
-        }
-      } else {
-        // normal category view: start autoplay behavior (first video) according to mobile rules
-        galleryPlayer.isManual = false;
-        // compute autoplay: if mobile -> only if muted preference; if desktop -> true
-        const autoplay = isMobileDevice() ? !!allowAutoOnMobile : true;
-        setTimeout(() => {
-          try {
-            // pass explicit autoplay flag (true/false)
-            galleryPlayer.playIndex(0, { autoplay: !!autoplay });
-          } catch (e) {}
-        }, 120);
-      }
-    }
-
-    // Determine initial category...
-    let initialCategory = CATEGORIES[0];
-    const sessionCat = readSessionCategory();
-    const sessionVid = readSessionVideo();
-
-    if (hashInfo.category) {
-      if (CATEGORIES.includes(hashInfo.category)) initialCategory = hashInfo.category;
-      else {
-        const found = CATEGORIES.find(c => c.toLowerCase() === (hashInfo.category || '').toLowerCase());
-        if (found) initialCategory = found;
-      }
-    } else if (hashInfo.video) {
-      const vidMeta = VIDEOS.find(v => v.id === hashInfo.video);
-      if (vidMeta && vidMeta.category) initialCategory = vidMeta.category;
-    } else {
-      if (navigationType === 'reload' && sessionCat) {
-        if (CATEGORIES.includes(sessionCat)) initialCategory = sessionCat;
-      } else if (sessionCat) {
-        if (CATEGORIES.includes(sessionCat)) initialCategory = sessionCat;
-      } else {
-        initialCategory = CATEGORIES[0];
-        if (navigationType === 'navigate') {
-          const newHash = `#${encodeURIComponent(initialCategory)}`;
-          history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
-        }
-      }
-    }
-
-    setTimeout(() => {
-      const btnToFocus = catList.querySelector(`button[data-category="${initialCategory}"]`) || catList.querySelector('button');
-      if (btnToFocus) { 
-        try { btnToFocus.focus({ preventScroll: true }); } catch(e) { btnToFocus.focus(); }
-        catList.querySelectorAll('button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
-        btnToFocus.classList.add('active');
-        btnToFocus.setAttribute('aria-selected','true');
-      }
-    }, 40);
-
-    if (hashInfo.video) {
-      renderCategory(initialCategory, { startVideoId: hashInfo.video, fromHash: true });
-    } else if (navigationType === 'reload' && sessionVid) {
-      const vidMeta = VIDEOS.find(v => v.id === sessionVid);
-      if (vidMeta && vidMeta.category === initialCategory) {
-        renderCategory(initialCategory, { startVideoId: sessionVid, fromHash: false });
-      } else {
-        renderCategory(initialCategory, { fromHash: false });
-      }
-    } else {
-      renderCategory(initialCategory, { fromHash: !!hashInfo.category });
-    }
-  }
-
-  /* ---------------- populateGrid (preview logic) ---------------- */
-  function populateGrid(container, category) {
+ /* ---------------- populateGrid (preview logic) - UPDATED to accept filters ---------------- */
+  function populateGrid(container, categories = null) {
     stopAllPreviewsExcept(null);
     container.innerHTML = '';
-    const items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
+    let items;
+    if (!Array.isArray(categories) || categories.length === 0) {
+      // no filters -> all videos
+      items = Array.isArray(VIDEOS) ? VIDEOS.slice() : [];
+    } else {
+      // filter by categories (case-sensitive match to your data)
+      items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => categories.includes(v.category)) : [];
+    }
+
+    if (!items.length) {
+      container.innerHTML = `<div style="padding:28px;color:var(--muted);text-align:center">Nessun video</div>`;
+      return;
+    }
+
     items.forEach((v, idx) => {
-      const posterUrl = v.poster || (`statics/covers/${v.category}/${v.id}.jpg`);
+      const posterUrl = v.poster || (`media/posters/${v.id}.jpg`);
       const btn = create('button', { class: 'grid-item', type: 'button', dataset: { id: v.id, index: idx } });
       const previewUrl = v.preview || v.mp4 || v.src || '';
       btn.innerHTML = `
@@ -1414,15 +1257,22 @@
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         stopAllPreviewsExcept(null);
-        if (galleryPlayer) {
-          galleryPlayer.isManual = true;
-          galleryPlayer.playIndex(idx, { userTriggered: true });
+        if (window.galleryPlayer) {
+          window.galleryPlayer.isManual = true;
+          // need to determine index in the current filtered list for playIndex
+          const currentItems = (!Array.isArray(categories) || categories.length === 0) ? VIDEOS.slice() : VIDEOS.filter(vv => categories.includes(vv.category));
+          const idxInSlides = currentItems.findIndex(s => s.id === v.id);
+          try { window.galleryPlayer.playIndex(idxInSlides, { userTriggered: true }); } catch(e){}
         }
         focusGridItem(container, idx);
-        const cat = category || '';
-        const newHash = `#${encodeURIComponent(cat)}/${encodeURIComponent(v.id)}`;
-        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
-        try { saveSessionCategory(cat); saveSessionVideo(v.id); } catch(e){}
+        // Update URL hash: use query style for filters + video
+        const cats = Array.isArray(categories) && categories.length ? categories.join(',') : '';
+        const params = new URLSearchParams();
+        if (cats) params.set('cats', cats);
+        params.set('video', v.id);
+        const newHash = params.toString();
+        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + (newHash ? ('#' + newHash) : ''));
+        try { saveSessionFilters(categories || []); saveSessionVideo(v.id); } catch(e){}
       });
 
       btn.setAttribute('data-id', v.id);
@@ -1430,6 +1280,195 @@
 
       container.appendChild(btn);
     });
+  }
+
+  /* ---------------- initGallery (REWRITTEN to use filters) ---------------- */
+  function initGallery(context = document) {
+    const catList = context.querySelector('#categoryList');
+    const galleryGrid = context.querySelector('#galleryGrid');
+    const section = context.querySelector('#galleryCarouselSection');
+    if (!catList || !galleryGrid || !section) return;
+
+    // parse existing hash (may contain cats & video)
+    const hashInfo = parseGalleryHash(); // { categories: [...], video }
+
+    // build filter buttons (multi-select)
+    catList.innerHTML = '';
+    CATEGORIES.forEach((category) => {
+      const li = create('li');
+      const btn = create('button', { 'aria-pressed': 'false', 'data-category': category }, category);
+      btn.classList.add('category-item');
+      btn.setAttribute('role', 'button');
+      // toggle filter on click
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // toggle UI
+        const isActive = btn.classList.toggle('active');
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+
+        // compute selected filters
+        const selected = Array.from(catList.querySelectorAll('button.active')).map(b => b.getAttribute('data-category')).filter(Boolean);
+
+        // persist selected filters
+        try { saveSessionFilters(selected); /* don't overwrite saved video here */ } catch(e){}
+
+        // update URL hash (cats=...)
+        const newHash = selected.length ? (`#${new URLSearchParams({cats: selected.join(',')}).toString()}`) : '';
+        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + newHash);
+
+        // repopulate grid with selected filters (or all if none)
+        populateGrid(galleryGrid, selected);
+
+        // --- SYNC PLAYER with filtered slides while preserving autoplay behavior ---
+        try {
+          // build the new slides array from the selected filters
+          const newSlides = (Array.isArray(selected) && selected.length) ? VIDEOS.filter(v => selected.includes(v.category)) : VIDEOS.slice();
+
+          if (window.galleryPlayer) {
+            // capture currently playing id (if any) BEFORE updating slides
+            const front = window.galleryPlayer._getFrontLayer && window.galleryPlayer._getFrontLayer();
+            const wasPlaying = !!(front && !front.paused);
+            const oldCurrentId = (window.galleryPlayer.slides && window.galleryPlayer.slides[window.galleryPlayer.currentIndex]) ? window.galleryPlayer.slides[window.galleryPlayer.currentIndex].id : null;
+
+            // update slides in player (this resets currentIndex to 0 per impl)
+            window.galleryPlayer.setSlides(newSlides);
+            window.galleryPlayer.updateMuteButton();
+
+            if (wasPlaying) {
+              // try to continue the same video if present in newSlides
+              let idx = -1;
+              if (oldCurrentId) idx = newSlides.findIndex(s => s.id === oldCurrentId);
+              if (idx >= 0) {
+                // continue from same video
+                window.galleryPlayer.playIndex(idx, { autoplay: true });
+              } else if (newSlides.length) {
+                // otherwise start from first item of filtered set
+                window.galleryPlayer.playIndex(0, { autoplay: true });
+              }
+            } else {
+              // player exists but was paused/manual: do nothing (just updated slides)
+              // preserve manual mode
+            }
+          } else {
+            // no player yet: create one so later interactions work consistently
+            // create but don't force play; initial autoplay policy will run elsewhere
+            window.galleryPlayer = new GalleryPlayer({ container: section, slides: newSlides });
+            window.galleryPlayer.updateMuteButton();
+            // If you want to auto-start when filters change even if no player, uncomment:
+            // const autoplay = isMobileDevice() ? !!readMute() : true;
+            // if (newSlides.length && autoplay) window.galleryPlayer.playIndex(0, { autoplay: true });
+          }
+        } catch (e) {
+          console.warn('[filters] failed to sync player with filters', e);
+        }
+      });
+
+      li.appendChild(btn);
+      catList.appendChild(li);
+    });
+
+    // helper: set active buttons from array
+    function setActiveButtons(arr) {
+      try {
+        catList.querySelectorAll('button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed','false'); });
+        if (Array.isArray(arr) && arr.length) {
+          arr.forEach(cat => {
+            const b = catList.querySelector(`button[data-category="${cat}"]`);
+            if (b) { b.classList.add('active'); b.setAttribute('aria-pressed','true'); }
+          });
+        }
+      } catch (e) {}
+    }
+
+    // determine initial filters:
+    // if the URL has NO hash at all -> reset filters immediately (show all).
+    // This handles both full page loads and Barba transitions (initGallery is called on enter).
+    const sessionFilters = readSessionFilters(); // may be null or array
+    let initialFilters = null;
+
+    // If there is no hash in the URL, we clear stored filters and show all (initialFilters = null)
+    if (!location.hash || location.hash === '#') {
+      try { saveSessionFilters([]); } catch(e){}
+      initialFilters = null;
+    } else if (hashInfo.categories && Array.isArray(hashInfo.categories) && hashInfo.categories.length) {
+      // hash explicitly requested categories -> respect them (with case-insensitive matching fallback)
+      const matched = hashInfo.categories.map(h => {
+        const exact = CATEGORIES.find(c => c === h);
+        if (exact) return exact;
+        const found = CATEGORIES.find(c => c.toLowerCase() === (h||'').toLowerCase());
+        return found || null;
+      }).filter(Boolean);
+      initialFilters = matched.length ? matched : null;
+    } else if (sessionFilters && sessionFilters.length) {
+      // if URL has a hash but it didn't specify categories (e.g. video=...), we may still restore session filters
+      initialFilters = sessionFilters.filter(f => CATEGORIES.includes(f));
+    } else {
+      // fallback: show all
+      initialFilters = null;
+    }
+
+
+    // apply initial filter buttons and populate grid
+    setActiveButtons(initialFilters);
+    populateGrid(galleryGrid, initialFilters);
+
+    // if hash also contained a video -> play that video after populate
+    if (hashInfo.video) {
+      // find video meta
+      const vidMeta = VIDEOS.find(v => v.id === hashInfo.video);
+      if (vidMeta) {
+        // if the video is not part of the current filtered list, ensure we show its category (activate that filter)
+        const belongsToCurrent = !initialFilters || initialFilters.length === 0 ? true : initialFilters.includes(vidMeta.category);
+        if (!belongsToCurrent) {
+          // activate the video's category
+          setActiveButtons([vidMeta.category]);
+          populateGrid(galleryGrid, [vidMeta.category]);
+        }
+        // create or update galleryPlayer and play the specific video (no autoplay if deep link)
+        // NOTE: we reuse the galleryPlayer implementation already present (unchanged)
+        setTimeout(() => {
+          try {
+            if (!window.galleryPlayer && section) {
+              window.galleryPlayer = new GalleryPlayer({ container: section, slides: VIDEOS.filter(v => (initialFilters && initialFilters.length) ? initialFilters.includes(v.category) : true) });
+              window.galleryPlayer.updateMuteButton();
+            }
+            // compute slide index within current slides
+            const slides = (initialFilters && initialFilters.length) ? VIDEOS.filter(v => initialFilters.includes(v.category)) : VIDEOS.slice();
+            const idx = slides.findIndex(s => s.id === vidMeta.id);
+            if (idx >= 0 && window.galleryPlayer) {
+              window.galleryPlayer.playIndex(idx, { userTriggered: true, autoplay: false });
+              window.galleryPlayer._showGalleryOverlayTransient?.();
+            }
+            try { saveSessionFilters(initialFilters || []); saveSessionVideo(vidMeta.id); } catch(e){}
+          } catch (e) {}
+        }, 150);
+      }
+    } else {
+      // no video deep-link: ensure galleryPlayer exists and maybe autoplay first item based on previous logic
+      setTimeout(() => {
+        try {
+          const slides = (initialFilters && initialFilters.length) ? VIDEOS.filter(v => initialFilters.includes(v.category)) : VIDEOS.slice();
+          if (!window.galleryPlayer && section) {
+            window.galleryPlayer = new GalleryPlayer({ container: section, slides });
+            window.galleryPlayer.updateMuteButton();
+          } else if (window.galleryPlayer) {
+            window.galleryPlayer.setSlides(slides);
+            window.galleryPlayer.updateMuteButton();
+          }
+          // decide autoplay same as before: mobile only if muted pref set
+          const autoplay = isMobileDevice() ? !!readMute() : true;
+          if (slides && slides.length) {
+            if (!hashInfo.categories && !sessionFilters) {
+              // arriving without filters -> behavior equals "no filters selected" (show all)
+            }
+            // play first (respect autoplay policy)
+            if (window.galleryPlayer) {
+              window.galleryPlayer.playIndex(0, { autoplay: !!autoplay });
+            }
+          }
+        } catch (e) {}
+      }, 150);
+    }
   }
 
   /* ---------------- RUN / BARBA ---------------- */
@@ -1481,5 +1520,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 
-  log('main.js ready — HLS + MP4 fallback, unified gallery overlay, URL-driven gallery behavior.');
+  log('main.js ready — filters-enabled gallery, deep-link compatible, session-preserve filters.');
 })();
