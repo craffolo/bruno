@@ -1,7 +1,7 @@
 // js/main.js
 (() => {
   /* ---------------- CONFIG / TIMINGS ---------------- */
-  const GALLERY_AUTOPLAY_INTERVAL_MS = 10000; // autoplay gallery player (usato se non manuale)
+  const GALLERY_AUTOPLAY_INTERVAL_MS = 5000; // autoplay gallery player (usato se non manuale)
   const MOUSE_IDLE_MS = 2000; // per gallery overlay
   const MOBILE_OVERLAY_TIMEOUT_MS = 2000
 
@@ -13,8 +13,8 @@
       mp4: 'media/home/cast_neve_carousel.mp4', 
       title: 'Neve', 
       desc: 'Cast', 
-      category: 'Narratives' , 
-      galleryId: 'waldeinsamkeit' 
+      category: 'Music videos' , 
+      galleryId: '' 
     },
     { 
       id: 'alici_di_menaica_carousel', 
@@ -22,22 +22,22 @@
       mp4: 'media/home/alici_di_menaica_carousel.mp4', 
       title: 'Alici di Menaica', 
       category: 'Documentaries', 
-      galleryId: 'alici_di_menaica_teaser' 
-    },
-    { 
-      id: 'cm_festa_fine_campagna_carousel', 
-      hls: 'media/home/cm_festa_fine_campagna_carousel/index.m3u8',  
-      title: 'Festa di Fine Campagna', 
-      category: '' , 
       galleryId: '' 
     },
     { 
-      id: 'human_carousel', 
+      id: 'casa_marrazzo_festa_di_fine_campagna_carousel', 
+      hls: 'media/home/cm_festa_fine_campagna_carousel/index.m3u8',  
+      title: 'Festa di Fine Campagna', 
+      category: 'Documentaries' , 
+      galleryId: 'casa_marrazzo_festa_di_fine_campagna' 
+    },
+    { 
+      id: 'sevdaliza_human_carousel', 
       hls: 'media/home/human_carousel/index.m3u8', 
       mp4: 'media/home/human_carousel.mp4', 
       title: 'Human', 
       category: 'Music Videos' , 
-      galleryId: '' 
+      galleryId: 'sevdaliza_human' 
     },
     { 
       id: 'il_compito_carousel', 
@@ -47,32 +47,32 @@
       galleryId: '' 
     },
     { 
-      id: 'la_quinta_stagione_carousel', 
+      id: 'antonia_klugmann_la_quinta_stagione_carousel', 
       hls: 'media/home/la_quinta_stagione_carousel/index.m3u8',  
       title: 'La Quinta Stagione', 
-      category: '' , 
-      galleryId: '' 
+      category: 'Food' , 
+      galleryId: 'antonia_klugmann_la_quinta_stagione' 
     },
     { 
-      id: 'partenope_carousel', 
+      id: 'partenope_fashion_film_carousel', 
       hls: 'media/home/partenope_carousel/index.m3u8',  
       title: 'Partenope', 
-      category: '' , 
-      galleryId: '' 
+      category: 'Fashion' , 
+      galleryId: 'partenope_fashion_film' 
     },
     { 
-      id: 'ride_or_die_carousel', 
+      id: 'cast_ride_or_die_carousel', 
       hls: 'media/home/ride_or_die_carousel/index.m3u8',  
       title: 'Ride or Die', 
-      category: '' , 
-      galleryId: '' 
+      category: 'Music videos' , 
+      galleryId: 'cast_ride_or_die' 
     },
     { 
       id: 'sinestesie_carousel', 
       hls: 'media/home/sinestesie_carousel/index.m3u8',  
       title: 'Sinestesie', 
-      category: '' , 
-      galleryId: '' 
+      category: 'Music videos' , 
+      galleryId: 'sinestesie' 
     },        
     { 
       id: 'spot_notaio_carousel', 
@@ -82,11 +82,11 @@
       galleryId: 'studio_notarile_dausilio' 
     },
     { 
-      id: 'varnelli_carousel', 
+      id: 'varnelli_cocktail_carousel', 
       hls: 'media/home/varnelli_carousel/index.m3u8',  
       title: 'Varnelli di Fine Campagna', 
-      category: '' , 
-      galleryId: '' 
+      category: 'Food' , 
+      galleryId: 'varnelli_cocktail' 
     },        
     { 
       id: 'waldeinsamkeit_carousel', 
@@ -103,48 +103,54 @@
     //Music videos
     { 
       id: 'cast_ride_or_die', 
-      hls: 'https://player.mux.com/IfZvbyfFzm7OGwsxDAaSJ2h4YE27KxB2imRlDiYdVgI', 
-      mp4: 'blank', 
+      hls: 'https://stream.mux.com/IfZvbyfFzm7OGwsxDAaSJ2h4YE27KxB2imRlDiYdVgI.m3u8', 
+      //preview: '',
+      poster: 'statics/covers/music_videos/cast_ride_or_die.png', 
       title: 'Cast', 
       desc: 'Ride or Die', 
       category: 'Music videos' 
     },
     { 
       id: 'eb_me_in_te', 
-      hls: 'blank', 
-      mp4: 'blank', 
+      hls: 'https://stream.mux.com/ui9HAozOypHMQIpwNfgYaArtU42x5qJgoxMA2tTIIWw.m3u8', 
+      //preview: '',
+      poster: 'statics/covers/music_videos/eb_me_in_te.png', 
       title: 'Eb', 
       desc: 'Me in te', 
       category: 'Music videos' 
     },
     { 
       id: 'evan_primo_marzo', 
-      hls: 'blank', 
-      mp4: 'blank', 
+      hls: 'https://stream.mux.com/HaDN6y017pm01RGFAiHUrfJK801WHrwqej001jktIv1iinY.m3u8', 
+      //preview: '',
+      poster: 'statics/covers/music_videos/evan_primo_marzo.png', 
       title: 'Evan', 
       desc: 'Primo Marzo', 
       category: 'Music videos' 
     },
     { 
       id: 'niven_alpaca_freestyle', 
-      hls: 'blank', 
-      mp4: 'blank', 
+      hls: 'https://stream.mux.com/hpdcknN7zJ00nVGZlqXvzSL0200ehk14Ba2bqhjN02q9QFw.m3u8', 
+      //preview: '',
+      poster: 'statics/covers/music_videos/niven_alpaca_freestyle.png', 
       title: 'Niven', 
       desc: 'Alpaca Freestyle', 
       category: 'Music videos' 
     },
     { 
       id: 'sevdaliza_human', 
-      hls: 'blank', 
-      mp4: 'blank', 
+      hls: 'https://stream.mux.com/JDmsrwKtLbJsh3h55Ssfk014uTQh3bVkSNM6bS1wIB7o.m3u8', 
+      //preview: '',
+      poster: 'statics/covers/music_videos/sevdaliza_human.png', 
       title: 'Sevdaliza', 
       desc: 'Human', 
       category: 'Music videos' 
     },
     { 
       id: 'sinestesie', 
-      hls: 'blank', 
-      mp4: 'blank', 
+      hls: 'https://stream.mux.com/IfZvbyfFzm7OGwsxDAaSJ2h4YE27KxB2imRlDiYdVgI.m3u8', 
+      //preview: '',
+      poster: 'statics/covers/music_videos/sinestesie.jpg', 
       title: 'Sinestesie', 
       desc: '', 
       category: 'Music videos' 
@@ -154,7 +160,8 @@
     { 
       id: 'di_agostino_costruzioni_donna_salerno', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/corporate/di_agostino_costruzioni_donna_salerno.png',
       title: 'Di Agostino Costruzioni', 
       desc: 'Donna Salerno', 
       category: 'Corporate' 
@@ -162,7 +169,8 @@
     { 
       id: 'tecnokarpoint_l_officina_e_il_suo_ritmo', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/corporate/tecnokarpoint_l_officina_e_il_suo_ritmo.png',
       title: 'Tecnokarpoint', 
       desc: 'L’officina e il suo ritmo', 
       category: 'Corporate' 
@@ -170,7 +178,8 @@
     { 
       id: 'di_agostino_costruzioni_villa_utopia', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/corporate/di_agostino_costruzioni_villa_utopia.png',
       title: 'Di Agostino Costruzioni', 
       desc: 'Villa Utopia', 
       category: 'Corporate' 
@@ -180,7 +189,8 @@
     { 
       id: 'casa_marrazzo_festa_di_fine_campagna', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/documentaries/casa_marrazzo_festa_di_fine_campagna.png',
       title: 'Casa Marrazzo', 
       desc: 'Festa di fine campagna', 
       category: 'Documentaries' 
@@ -190,7 +200,8 @@
     { 
       id: 'alienation', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/fashion/alienation.png',
       title: 'Alienation', 
       desc: '', 
       category: 'Fashion' 
@@ -198,7 +209,8 @@
     { 
       id: 'partenope_fashion_film', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/fashion/partenope_fashion_film.png',
       title: 'Partenope', 
       desc: 'Fashion Film', 
       category: 'Fashion' 
@@ -208,7 +220,8 @@
     { 
       id: 'the_buff_biologist_motivational_reel', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/fitness/the_buff_biologist_motivational_reel.png',
       title: 'The Buff biologist', 
       desc: 'Motivational reel', 
       category: 'Fitness' 
@@ -216,7 +229,8 @@
     { 
       id: 'miriamssfit_e_gianzcoach_workout_compilation', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/fitness/miriamssfit_e_gianzcoach_workout_compilation.png',
       title: 'Miriamssfit e Gianzcoach', 
       desc: 'Workout compilation', 
       category: 'Fitness' 
@@ -226,7 +240,8 @@
     { 
       id: 'antonia_klugmann_la_quinta_stagione', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/antonia_klugmann_la_quinta_stagione.png',
       title: 'Antonia Klugmann', 
       desc: 'La Quinta Stagione', 
       category: 'Food' 
@@ -234,7 +249,8 @@
     { 
       id: 'varnelli_cocktail', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/varnelli_cocktail.png',
       title: 'Varnelli', 
       desc: 'Cocktail crafting', 
       category: 'Food' 
@@ -242,7 +258,8 @@
     { 
       id: 'varnelli_interview', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/varnelli_interview.png',
       title: 'Varnelli', 
       desc: 'Interview', 
       category: 'Food' 
@@ -250,7 +267,8 @@
     { 
       id: 'martina_caruso_la_quinta_stagione', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/martina_caruso_la_quinta_stagione.png',
       title: 'Martina Caruso', 
       desc: 'La Quinta Stagione', 
       category: 'Food' 
@@ -258,7 +276,8 @@
     { 
       id: 'valeria_piccini_la_quinta_stagione', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/valeria_piccini_la_quinta_stagione.png',
       title: 'Valeria Piccini', 
       desc: 'La Quinta Stagione', 
       category: 'Food' 
@@ -266,7 +285,8 @@
     { 
       id: 'be_truffle_fancy_food_2025', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/be_truffle_fancy_food_2025.png',
       title: 'Be Truffle', 
       desc: 'Fancy food 2025', 
       category: 'Food' 
@@ -274,7 +294,8 @@
     { 
       id: 'be_truffle_basketball_players_reaction', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/be_truffle_basketball_players_reaction.png',
       title: 'Be Truffle', 
       desc: 'Basketball players reaction', 
       category: 'Food' 
@@ -282,7 +303,8 @@
     { 
       id: 'trucillo_tedx', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/trucillo_tedx.png',
       title: 'Trucillo', 
       desc: 'Tedx', 
       category: 'Food' 
@@ -290,19 +312,19 @@
     { 
       id: 'alta_campania_wine_fest_video_hero', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/food/alta_campania_wine_fest_video_hero.png',
       title: 'Alta Campania Wine fest', 
       desc: 'Video hero', 
       category: 'Food' 
     },
 
-
-
     //Narratives
     { 
       id: 'chiacchiere_da_ascensore', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/narratives/chiacchiere_da_ascensore.png',
       title: 'Chiacchiere da Ascensore', 
       desc: '', 
       category: 'Narratives' 
@@ -310,7 +332,8 @@
     { 
       id: 'waldeinsamkeit', 
       hls: 'blank', 
-      mp4: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/narratives/waldeinsamkeit.png',
       title: 'Waldeinsamkeit', 
       desc: '', 
       category: 'Narratives' 
@@ -320,8 +343,8 @@
     { 
       id: 'studio_notarile_dausilio', 
       hls: 'media/works/commercials/studio_notarile_dausilio/index.m3u8', 
-      mp4: 'media/works/commercials/studio_notarile_dausilio.mp4', 
-      preview: '', 
+      //preview: '',
+      poster: 'statics/covers/commercials/studio_notarile_dausilio.png',
       title: "Studio Notarile D'Ausilio", 
       desc: 'Come a casa, anche nei momenti importanti', 
       category: 'Commercials' 
@@ -1339,7 +1362,7 @@
     container.innerHTML = '';
     const items = Array.isArray(VIDEOS) ? VIDEOS.filter(v => v.category === category) : [];
     items.forEach((v, idx) => {
-      const posterUrl = v.poster || (`media/posters/${v.id}.jpg`);
+      const posterUrl = v.poster || (`statics/covers/${v.category}/${v.id}.jpg`);
       const btn = create('button', { class: 'grid-item', type: 'button', dataset: { id: v.id, index: idx } });
       const previewUrl = v.preview || v.mp4 || v.src || '';
       btn.innerHTML = `
