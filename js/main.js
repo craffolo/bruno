@@ -170,7 +170,7 @@
     //Documentaries
     { 
       id: 'casa_marrazzo_festa_di_fine_campagna', 
-      hls: 'blank', 
+      hls: 'https://stream.mux.com/sCqT6ORmXHIh7ogjmAreWzfb02700y02RMFqUvHy3WOmDc.m3u8', 
       //preview: '',
       poster: 'statics/covers/documentaries/casa_marrazzo_festa_di_fine_campagna.png',
       title: 'Casa Marrazzo', 
