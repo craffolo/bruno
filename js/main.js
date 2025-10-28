@@ -148,7 +148,7 @@
     },
     { 
       id: 'sinestesie', 
-      hls: 'https://stream.mux.com/IfZvbyfFzm7OGwsxDAaSJ2h4YE27KxB2imRlDiYdVgI.m3u8', 
+      hls: 'https://stream.mux.com/8xn844Qksz2UB1XQ5lrlYEqgfbYZpDbs2k019CQAXr3k.m3u8', 
       //preview: '',
       poster: 'statics/covers/music_videos/sinestesie.jpg', 
       title: 'Sinestesie', 
@@ -156,33 +156,15 @@
       category: 'Music videos' 
     },
 
-    //Corporate
+    // Commercials
     { 
-      id: 'di_agostino_costruzioni_donna_salerno', 
-      hls: 'blank', 
+      id: 'studio_notarile_dausilio', 
+      hls: 'https://stream.mux.com/b01oYdsZxI6DkJtYEWO5x02gNXTLBaPK6yLPTMsJ00q00Nk.m3u8', 
       //preview: '',
-      poster: 'statics/covers/corporate/di_agostino_costruzioni_donna_salerno.png',
-      title: 'Di Agostino Costruzioni', 
-      desc: 'Donna Salerno', 
-      category: 'Corporate' 
-    },
-    { 
-      id: 'tecnokarpoint_l_officina_e_il_suo_ritmo', 
-      hls: 'blank', 
-      //preview: '',
-      poster: 'statics/covers/corporate/tecnokarpoint_l_officina_e_il_suo_ritmo.png',
-      title: 'Tecnokarpoint', 
-      desc: 'L’officina e il suo ritmo', 
-      category: 'Corporate' 
-    },
-    { 
-      id: 'di_agostino_costruzioni_villa_utopia', 
-      hls: 'blank', 
-      //preview: '',
-      poster: 'statics/covers/corporate/di_agostino_costruzioni_villa_utopia.png',
-      title: 'Di Agostino Costruzioni', 
-      desc: 'Villa Utopia', 
-      category: 'Corporate' 
+      poster: 'statics/covers/commercials/studio_notarile_dausilio.jpg',
+      title: "Studio Notarile D'Ausilio", 
+      desc: 'Come a casa, anche nei momenti importanti', 
+      category: 'Commercials' 
     },
 
     //Documentaries
@@ -194,46 +176,6 @@
       title: 'Casa Marrazzo', 
       desc: 'Festa di fine campagna', 
       category: 'Documentaries' 
-    },
-
-    //Fashion
-    { 
-      id: 'alienation', 
-      hls: 'blank', 
-      //preview: '',
-      poster: 'statics/covers/fashion/alienation.png',
-      title: 'Alienation', 
-      desc: '', 
-      category: 'Fashion' 
-    },
-    { 
-      id: 'partenope_fashion_film', 
-      hls: 'blank', 
-      //preview: '',
-      poster: 'statics/covers/fashion/partenope_fashion_film.png',
-      title: 'Partenope', 
-      desc: 'Fashion Film', 
-      category: 'Fashion' 
-    },
-
-    //Fitness
-    { 
-      id: 'the_buff_biologist_motivational_reel', 
-      hls: 'blank', 
-      //preview: '',
-      poster: 'statics/covers/fitness/the_buff_biologist_motivational_reel.png',
-      title: 'The Buff biologist', 
-      desc: 'Motivational reel', 
-      category: 'Fitness' 
-    },
-    { 
-      id: 'miriamssfit_e_gianzcoach_workout_compilation', 
-      hls: 'blank', 
-      //preview: '',
-      poster: 'statics/covers/fitness/miriamssfit_e_gianzcoach_workout_compilation.png',
-      title: 'Miriamssfit e Gianzcoach', 
-      desc: 'Workout compilation', 
-      category: 'Fitness' 
     },
 
     //Food
@@ -319,6 +261,26 @@
       category: 'Food' 
     },
 
+    //Fashion
+    { 
+      id: 'alienation', 
+      hls: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/fashion/alienation.png',
+      title: 'Alienation', 
+      desc: '', 
+      category: 'Fashion' 
+    },
+    { 
+      id: 'partenope_fashion_film', 
+      hls: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/fashion/partenope_fashion_film.png',
+      title: 'Partenope', 
+      desc: 'Fashion Film', 
+      category: 'Fashion' 
+    },
+
     //Narratives
     { 
       id: 'chiacchiere_da_ascensore', 
@@ -339,19 +301,57 @@
       category: 'Narratives' 
     },
 
-    // Commercials
+    //Fitness
     { 
-      id: 'studio_notarile_dausilio', 
-      hls: 'media/works/commercials/studio_notarile_dausilio/index.m3u8', 
+      id: 'the_buff_biologist_motivational_reel', 
+      hls: 'blank', 
       //preview: '',
-      poster: 'statics/covers/commercials/studio_notarile_dausilio.jpg',
-      title: "Studio Notarile D'Ausilio", 
-      desc: 'Come a casa, anche nei momenti importanti', 
-      category: 'Commercials' 
+      poster: 'statics/covers/fitness/the_buff_biologist_motivational_reel.png',
+      title: 'The Buff biologist', 
+      desc: 'Motivational reel', 
+      category: 'Fitness' 
+    },
+    { 
+      id: 'miriamssfit_e_gianzcoach_workout_compilation', 
+      hls: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/fitness/miriamssfit_e_gianzcoach_workout_compilation.png',
+      title: 'Miriamssfit e Gianzcoach', 
+      desc: 'Workout compilation', 
+      category: 'Fitness' 
+    },
+
+    //Corporate
+    { 
+      id: 'di_agostino_costruzioni_donna_salerno', 
+      hls: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/corporate/di_agostino_costruzioni_donna_salerno.png',
+      title: 'Di Agostino Costruzioni', 
+      desc: 'Donna Salerno', 
+      category: 'Corporate' 
+    },
+    { 
+      id: 'tecnokarpoint_l_officina_e_il_suo_ritmo', 
+      hls: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/corporate/tecnokarpoint_l_officina_e_il_suo_ritmo.png',
+      title: 'Tecnokarpoint', 
+      desc: 'L’officina e il suo ritmo', 
+      category: 'Corporate' 
+    },
+    { 
+      id: 'di_agostino_costruzioni_villa_utopia', 
+      hls: 'blank', 
+      //preview: '',
+      poster: 'statics/covers/corporate/di_agostino_costruzioni_villa_utopia.png',
+      title: 'Di Agostino Costruzioni', 
+      desc: 'Villa Utopia', 
+      category: 'Corporate' 
     },
 
   ];
-  const CATEGORIES = ['Music videos', 'Commercials', 'Documentaries', 'Food', 'Fashion', 'Narratives', 'Social', 'Corporate',];
+  const CATEGORIES = ['Music videos', 'Commercials', 'Documentaries', 'Food', 'Fashion', 'Narratives', 'Fitness', 'Social', 'Corporate', 'Real estate',];
 
   /* ---------------- HELPERS ---------------- */
   const $ = (s, ctx = document) => (ctx || document).querySelector(s);
