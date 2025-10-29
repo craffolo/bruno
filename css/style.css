@@ -276,10 +276,18 @@ html,body{height:100%;background:var(--bg);color:#fff;font-family:"Futura",syste
 
 /* gallery player */
 .gallery-player{position:relative;width:100%;height:100%;display:block;cursor:pointer}
-.gallery-player .gallery-video{display:block;width:100%;height:100%;object-fit:cover;background:#000}
+.gallery-player .gallery-video{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
 .gallery-player .layer-a,.gallery-player .layer-b{position:absolute;inset:0;width:100%;height:100%;top:0;left:0}
 .gallery-player .layer-a{z-index:2;opacity:1;pointer-events:auto}
 .gallery-player .layer-b{z-index:1;opacity:0;pointer-events:none}
+.gallery-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* o contain, a seconda del crop voluto */
+  display: block;
+}
 
 /* unified overlay wrapper */
 .gallery-overlay{

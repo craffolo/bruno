@@ -961,7 +961,7 @@
     }
 
     async playIndex(i, opts = {}) {
-      if (!this.slides.length) return;
+      if (!this.slides || !this.slides.length) return;
       i = (i + this.slides.length) % this.slides.length;
       const meta = this.slides[i];
       if (!meta) return;
@@ -970,63 +970,61 @@
       const backLayer = (this.front === 'A') ? this.layerB : this.layerA;
       const frontLayer = (this.front === 'A') ? this.layerA : this.layerB;
 
-      // prepare backLayer: stop any previous source but DO NOT hide front yet
-      try { backLayer.pause(); } catch (e) {}
-      try { destroyHlsForEl(backLayer); backLayer.removeAttribute('src'); } catch (e) {}
+      // stop previous back layer work & detach HLS if any
+      try { backLayer.pause(); } catch(e) {}
+      try { destroyHlsForEl(backLayer); backLayer.removeAttribute('src'); } catch(e) {}
 
       const sourceUrl = meta.hls || meta.mp4 || meta.src || '';
-      // attachSource resolves on canplay — good for seamless playback
+      // attachSource resolves on canplay (or timeout) -> good for preparing first frame
       try {
         await attachSource(backLayer, sourceUrl);
-      } catch (e) {
+      } catch(e) {
         console.warn('[gallery] attachSource failed', e);
       }
 
-      // ensure mute state
+      // set mute state
       const muted = readMute();
       backLayer.muted = !!muted;
       frontLayer.muted = !!muted;
 
-      // set starting time to 0 (or keep preserved if you want resume behavior)
+      // ensure start at 0
       try { backLayer.currentTime = 0; } catch(e){}
 
-      // Attempt to play the back layer — wait for it to actually start playing before crossfading.
+      // Try to play the back layer and wait until it actually starts playing
       const playOk = await safePlay(backLayer);
-      // If play fails, leave frontLayer as is and bail
       if (!playOk) {
-        console.warn('[gallery] safePlay failed for backLayer, aborting seamless switch');
-        // still update currentIndex so UI reflects selection, but do not perform crossfade
+        console.warn('[gallery] safePlay failed for backLayer, aborting direct cut');
+        // update state/title but don't cut
         this.currentIndex = i;
         this._syncTitle(meta.title);
         try { saveSessionVideo(meta.id); } catch(e){}
         return;
       }
 
-      // Now both backLayer is playing and frontLayer still visible: perform crossfade smoothly
+      // ===== DIRECT CUT (no crossfade) =====
       try {
-        // ensure stacking order (back on top)
+        // Put backLayer visually on top
         backLayer.style.zIndex = 3;
         frontLayer.style.zIndex = 2;
 
-        if (window.gsap) {
-          // gsap crossfade: bring backLayer opacity to 1 while fading frontLayer to 0
-          gsap.fromTo(backLayer, { opacity: 0, scale: 1.02 }, { opacity: 1, scale: 1, duration: 0.45, ease: 'power2.out' });
-          gsap.to(frontLayer, { opacity: 0, scale: 0.98, duration: 0.45, ease: 'power2.out', onComplete: () => {
-            try { frontLayer.pause(); frontLayer.currentTime = 0; } catch(e){}
-            this.front = (this.front === 'A') ? 'B' : 'A';
-            this._onAfterPlaySwitch(i, meta);
-          }});
-        } else {
-          backLayer.style.opacity = 1;
-          backLayer.style.zIndex = 3;
-          frontLayer.style.opacity = 0;
-          frontLayer.style.zIndex = 2;
-          try { frontLayer.pause(); frontLayer.currentTime = 0; } catch(e){}
-          this.front = (this.front === 'A') ? 'B' : 'A';
-          this._onAfterPlaySwitch(i, meta);
-        }
+        // Immediately show back layer and hide front layer (no transitions)
+        // IMPORTANT: ensure CSS doesn't animate opacity; we set inline styles for immediacy
+        backLayer.style.transition = 'none';
+        frontLayer.style.transition = 'none';
+
+        backLayer.style.opacity = '1';
+        frontLayer.style.opacity = '0';
+
+        // Pause front layer and reset its time AFTER the cut
+        try { frontLayer.pause(); frontLayer.currentTime = 0; } catch(e){}
+
+        // flip the front marker
+        this.front = (this.front === 'A') ? 'B' : 'A';
+
+        // post-switch bookkeeping
+        this._onAfterPlaySwitch(i, meta);
       } catch (e) {
-        // fallback: if animation fails, swap immediately
+        console.warn('[gallery] direct cut fallback', e);
         try { frontLayer.pause(); frontLayer.currentTime = 0; } catch(e){}
         this.front = (this.front === 'A') ? 'B' : 'A';
         this._onAfterPlaySwitch(i, meta);
@@ -1036,9 +1034,9 @@
       this.resetAutoplay();
       this._startProgressLoop();
 
-      // Save last played video to session so refresh keeps it
       try { saveSessionVideo(meta.id); } catch(e){}
     }
+
 
 
     _onAfterPlaySwitch(i, meta) {
@@ -1056,7 +1054,7 @@
       const preUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src)) || '';
       if (preUrl) {
         // non attendere, ma avvia attachSource in background per far arrivare il canplay prima possibile
-        setTimeout(()=> { attachSource(inactiveLayer, preUrl).catch(()=>{}); }, 260);
+        setTimeout(()=> { attachSource(inactiveLayer, preUrl).catch(()=>{}); }, 150);
       }
     }
 
