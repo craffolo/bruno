@@ -275,7 +275,7 @@ html,body{height:100%;background:var(--bg);color:#fff;font-family:"Futura",syste
 }
 
 /* gallery player */
-.gallery-player{position:relative;width:100%;height:100%;display:block;cursor:pointer}
+.gallery-player{position:relative;width:100%;display:block;cursor:pointer}
 .gallery-player .gallery-video{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
 .gallery-player .layer-a,.gallery-player .layer-b{position:absolute;inset:0;width:100%;height:100%;top:0;left:0}
 .gallery-player .layer-a{z-index:2;opacity:1;pointer-events:auto}
@@ -285,7 +285,7 @@ html,body{height:100%;background:var(--bg);color:#fff;font-family:"Futura",syste
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover; /* o contain, a seconda del crop voluto */
+  object-fit: cover; 
   display: block;
 }
 
@@ -303,6 +303,31 @@ html,body{height:100%;background:var(--bg);color:#fff;font-family:"Futura",syste
 .gallery-overlay .bottom-overlay .bottom-overlay-text,
 .gallery-overlay .play-overlay,
 .gallery-overlay .progress-wrap{pointer-events:auto}
+
+
+
+.gallery-player {
+  width: 100%;
+  max-width: 1200px; /* o tuo valore */
+  margin: 0 auto;
+
+  /* don't set fixed height; use aspect-ratio or JS to set height */
+  overflow: hidden;
+  background: #000;
+}
+
+/* iframe fills wrapper (scaling handled by Vimeo inside iframe) */
+.gallery-iframe,
+.gallery-player iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* cannot use object-fit on iframe; sizing handled by wrapper aspect ratio */
+}
+
+
 
 /* top overlay */
 .top-overlay {

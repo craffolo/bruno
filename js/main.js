@@ -4,6 +4,8 @@
   const GALLERY_AUTOPLAY_INTERVAL_MS = 5000; // autoplay gallery player (usato se non manuale)
   const MOUSE_IDLE_MS = 2000; // per gallery overlay
   const MOBILE_OVERLAY_TIMEOUT_MS = 2000
+  const USE_OWN_OVERLAY = true;
+
 
   /* ---------------- DATA (esempio) ---------------- */
   const HOME_CAROUSEL = (typeof window !== 'undefined' && window.HOME_CAROUSEL) ? window.HOME_CAROUSEL : [
@@ -103,7 +105,7 @@
     //Music videos
     { 
       id: 'cast_ride_or_die', 
-      hls: 'https://stream.mux.com/IfZvbyfFzm7OGwsxDAaSJ2h4YE27KxB2imRlDiYdVgI.m3u8', 
+      vimeoId: '1131786808',
       //preview: '',
       poster: 'statics/covers/music_videos/cast_ride_or_die.png', 
       title: 'Cast', 
@@ -112,16 +114,16 @@
     },
     { 
       id: 'eb_me_in_te', 
-      hls: 'https://stream.mux.com/ui9HAozOypHMQIpwNfgYaArtU42x5qJgoxMA2tTIIWw.m3u8', 
+      vimeoId: '1131787217',
       //preview: '',
       poster: 'statics/covers/music_videos/eb_me_in_te.png', 
       title: 'Eb', 
       desc: 'Me in te', 
-      category: 'Music videos' 
+      categories: ['Music videos','Social'] 
     },
     { 
       id: 'evan_primo_marzo', 
-      hls: 'https://stream.mux.com/HaDN6y017pm01RGFAiHUrfJK801WHrwqej001jktIv1iinY.m3u8', 
+      vimeoId: '1131787356', 
       //preview: '',
       poster: 'statics/covers/music_videos/evan_primo_marzo.png', 
       title: 'Evan', 
@@ -130,7 +132,7 @@
     },
     { 
       id: 'niven_alpaca_freestyle', 
-      hls: 'https://stream.mux.com/hpdcknN7zJ00nVGZlqXvzSL0200ehk14Ba2bqhjN02q9QFw.m3u8', 
+      vimeoId: '1131787946', 
       //preview: '',
       poster: 'statics/covers/music_videos/niven_alpaca_freestyle.png', 
       title: 'Niven', 
@@ -139,7 +141,7 @@
     },
     { 
       id: 'sevdaliza_human', 
-      hls: 'https://stream.mux.com/JDmsrwKtLbJsh3h55Ssfk014uTQh3bVkSNM6bS1wIB7o.m3u8', 
+      vimeoId: '1131788520',
       //preview: '',
       poster: 'statics/covers/music_videos/sevdaliza_human.png', 
       title: 'Sevdaliza', 
@@ -148,7 +150,7 @@
     },
     { 
       id: 'sinestesie', 
-      hls: 'https://stream.mux.com/8xn844Qksz2UB1XQ5lrlYEqgfbYZpDbs2k019CQAXr3k.m3u8', 
+      vimeoId: '1131789149',
       //preview: '',
       poster: 'statics/covers/music_videos/sinestesie.jpg', 
       title: 'Sinestesie', 
@@ -159,7 +161,7 @@
     // Commercials
     { 
       id: 'studio_notarile_dausilio', 
-      hls: 'https://stream.mux.com/b01oYdsZxI6DkJtYEWO5x02gNXTLBaPK6yLPTMsJ00q00Nk.m3u8', 
+      vimeoId: '1131777520',
       //preview: '',
       poster: 'statics/covers/commercials/studio_notarile_dausilio.jpg',
       title: "Studio Notarile D'Ausilio", 
@@ -170,121 +172,132 @@
     //Documentaries
     { 
       id: 'casa_marrazzo_festa_di_fine_campagna', 
-      hls: 'https://stream.mux.com/sCqT6ORmXHIh7ogjmAreWzfb02700y02RMFqUvHy3WOmDc.m3u8', 
+      vimeoId: '1131791058',
       //preview: '',
       poster: 'statics/covers/documentaries/casa_marrazzo_festa_di_fine_campagna.png',
       title: 'Casa Marrazzo', 
       desc: 'Festa di fine campagna', 
-      category: 'Documentaries' 
+      categories: ['Documentaries','Food'] 
     },
 
     //Food
     { 
       id: 'antonia_klugmann_la_quinta_stagione', 
-      hls: 'blank', 
+      vimeoId: '1079104268',
       //preview: '',
       poster: 'statics/covers/food/antonia_klugmann_la_quinta_stagione.png',
       title: 'Antonia Klugmann', 
       desc: 'La Quinta Stagione', 
-      category: 'Food' 
+      category: ['Food','Documentaries'] 
     },
     { 
       id: 'varnelli_cocktail', 
-      hls: 'blank', 
+      vimeoId: '1131798687',
       //preview: '',
       poster: 'statics/covers/food/varnelli_cocktail.png',
       title: 'Varnelli', 
       desc: 'Cocktail crafting', 
-      category: 'Food' 
+      categories: ['Food', 'Social'] 
     },
     { 
       id: 'varnelli_interview', 
-      hls: 'blank', 
+      vimeoId: '1131791456',
       //preview: '',
       poster: 'statics/covers/food/varnelli_interview.png',
       title: 'Varnelli', 
       desc: 'Interview', 
-      category: 'Food' 
+      categories: ['Food', 'Social'] 
     },
     { 
       id: 'martina_caruso_la_quinta_stagione', 
-      hls: 'blank', 
+      vimeoId: '1131791508',
       //preview: '',
       poster: 'statics/covers/food/martina_caruso_la_quinta_stagione.png',
       title: 'Martina Caruso', 
       desc: 'La Quinta Stagione', 
-      category: 'Food' 
+      categories: ['Food', 'Documentaries'] 
     },
     { 
       id: 'valeria_piccini_la_quinta_stagione', 
-      hls: 'blank', 
+      vimeoId: '1131791508',
       //preview: '',
       poster: 'statics/covers/food/valeria_piccini_la_quinta_stagione.png',
       title: 'Valeria Piccini', 
       desc: 'La Quinta Stagione', 
-      category: 'Food' 
+      categories: ['Food', 'Documentaries'] 
     },
     { 
       id: 'be_truffle_fancy_food_2025', 
-      hls: 'blank', 
+      vimeoId: '1131801738',
       //preview: '',
       poster: 'statics/covers/food/be_truffle_fancy_food_2025.png',
       title: 'Be Truffle', 
       desc: 'Fancy food 2025', 
-      category: 'Food' 
+      categories: ['Food', 'Social'] 
     },
     { 
       id: 'be_truffle_basketball_players_reaction', 
-      hls: 'blank', 
+      vimeoId: '1131801546',
       //preview: '',
       poster: 'statics/covers/food/be_truffle_basketball_players_reaction.png',
       title: 'Be Truffle', 
       desc: 'Basketball players reaction', 
-      category: 'Food' 
+      categories: ['Food', 'Social'] 
     },
     { 
       id: 'trucillo_tedx', 
-      hls: 'blank', 
+      vimeoId: '1131801200',
       //preview: '',
       poster: 'statics/covers/food/trucillo_tedx.png',
       title: 'Trucillo', 
       desc: 'Tedx', 
-      category: 'Food' 
+      categories: ['Food', 'Social'] 
     },
     { 
       id: 'alta_campania_wine_fest_video_hero', 
-      hls: 'blank', 
+      vimeoId: '1131801351',
       //preview: '',
       poster: 'statics/covers/food/alta_campania_wine_fest_video_hero.png',
       title: 'Alta Campania Wine fest', 
       desc: 'Video hero', 
-      category: 'Food' 
+      categories: ['Food', 'Social'] 
+    },
+
+    //Social
+    { 
+      id: 'cast_ride_or_die_trailer', 
+      vimeoId: '1079178882',
+      //preview: '',
+      poster: 'statics/covers/music_videos/cast_ride_or_die.png', 
+      title: 'Cast', 
+      desc: 'Ride or Die Trailer', 
+      categories: ['Music videos', 'Social'],
     },
 
     //Fashion
     { 
       id: 'alienation', 
-      hls: 'blank', 
+      vimeoId: '1131794014',
       //preview: '',
       poster: 'statics/covers/fashion/alienation.png',
       title: 'Alienation', 
       desc: '', 
-      category: 'Fashion' 
+      categories: ['Fashion', 'Social'] 
     },
     { 
       id: 'partenope_fashion_film', 
-      hls: 'blank', 
+      vimeoId: '1079106614',
       //preview: '',
       poster: 'statics/covers/fashion/partenope_fashion_film.png',
       title: 'Partenope', 
       desc: 'Fashion Film', 
-      category: 'Fashion' 
+      categories: ['Fashion', 'Commercials'] 
     },
 
     //Narratives
     { 
       id: 'chiacchiere_da_ascensore', 
-      hls: 'blank', 
+      vimeoId: '1131799734',
       //preview: '',
       poster: 'statics/covers/narratives/chiacchiere_da_ascensore.png',
       title: 'Chiacchiere da Ascensore', 
@@ -293,7 +306,7 @@
     },
     { 
       id: 'waldeinsamkeit', 
-      hls: 'blank', 
+      vimeoId: '1131801331',
       //preview: '',
       poster: 'statics/covers/narratives/waldeinsamkeit.png',
       title: 'Waldeinsamkeit', 
@@ -304,7 +317,7 @@
     //Fitness
     { 
       id: 'the_buff_biologist_motivational_reel', 
-      hls: 'blank', 
+      vimeoId: '1131791275',
       //preview: '',
       poster: 'statics/covers/fitness/the_buff_biologist_motivational_reel.png',
       title: 'The Buff biologist', 
@@ -313,7 +326,7 @@
     },
     { 
       id: 'miriamssfit_e_gianzcoach_workout_compilation', 
-      hls: 'blank', 
+      vimeoId: '1131791335',
       //preview: '',
       poster: 'statics/covers/fitness/miriamssfit_e_gianzcoach_workout_compilation.png',
       title: 'Miriamssfit e Gianzcoach', 
@@ -324,7 +337,7 @@
     //Corporate
     { 
       id: 'di_agostino_costruzioni_donna_salerno', 
-      hls: 'blank', 
+      vimeoId: '1131778517',
       //preview: '',
       poster: 'statics/covers/corporate/di_agostino_costruzioni_donna_salerno.png',
       title: 'Di Agostino Costruzioni', 
@@ -333,7 +346,7 @@
     },
     { 
       id: 'tecnokarpoint_l_officina_e_il_suo_ritmo', 
-      hls: 'blank', 
+      vimeoId: '1131779000',
       //preview: '',
       poster: 'statics/covers/corporate/tecnokarpoint_l_officina_e_il_suo_ritmo.png',
       title: 'Tecnokarpoint', 
@@ -342,12 +355,12 @@
     },
     { 
       id: 'di_agostino_costruzioni_villa_utopia', 
-      hls: 'blank', 
+      vimeoId: '1131780260',
       //preview: '',
       poster: 'statics/covers/corporate/di_agostino_costruzioni_villa_utopia.png',
       title: 'Di Agostino Costruzioni', 
       desc: 'Villa Utopia', 
-      category: 'Corporate' 
+      categories: ['Corporate','Real estate'] 
     },
 
   ];
@@ -667,12 +680,17 @@
     }
   }
 
-  /* ---------------- GalleryPlayer (HLS main, hover preview via mp4) ---------------- */
+  /* ---------------- GalleryPlayer (Vimeo-aware, fallback HLS/video) ---------------- */
   class GalleryPlayer {
     constructor(opts) {
       this.container = opts.container;
-      this.layerA = this.container.querySelector('.gallery-video.layer-a');
-      this.layerB = this.container.querySelector('.gallery-video.layer-b');
+      // prefer iframe elements (Vimeo), fallback to video elements
+      this.iframeA = this.container.querySelector('.gallery-iframe.layer-a');
+      this.iframeB = this.container.querySelector('.gallery-iframe.layer-b');
+      this.layerA = this.iframeA ? null : this.container.querySelector('.gallery-video.layer-a');
+      this.layerB = this.iframeB ? null : this.container.querySelector('.gallery-video.layer-b');
+
+      // Title / controls
       this.titleEl = this.container.querySelector('#galleryTitle');
       this.prevBtn = this.container.querySelector('#gPrevBtn');
       this.nextBtn = this.container.querySelector('#gNextBtn');
@@ -682,49 +700,85 @@
       this.playOverlay = this.container.querySelector('.play-overlay');
       this.topOverlay = this.container.querySelector('.top-overlay');
       this.bottomOverlay = this.container.querySelector('.bottom-overlay');
-      this.galleryOverlay = this.container.querySelector('.gallery-overlay'); // unified overlay container
-
       this.topMuteBtn = this.container.querySelector('.top-overlay .mute-btn');
       this.topFsBtn = this.container.querySelector('.top-overlay .fs-btn');
+      this.galleryOverlay = this.container.querySelector('.gallery-overlay');
 
+      // slides + state
       this.slides = opts.slides || [];
       this.currentIndex = 0;
-      this.front = 'A';
+      this.front = 'A'; // 'A' or 'B'
+      this.players = { A: null, B: null }; // for Vimeo.Player instances
       this.autoplayTimer = null;
       this.isManual = false;
+
+      // internal
       this._boundOnInteraction = this._onUserInteraction.bind(this);
       this._rafId = null;
       this._pauseTimeoutId = null;
-      this._seeking = false;
-
-      // overlay idle management
-      this._overlayVisible = false;
       this._overlayTimer = null;
+      this._overlayVisible = false;
       this._onMouseMoveBound = this._onMouseMove.bind(this);
       this._onTouchTapBound = this._onTouchTap.bind(this);
+      this._domMode = this.iframeA || this.iframeB ? 'iframe' : 'video'; // which DOM mode we are in
 
-      this._setupLayers();
+      // init
+      this._ensureElements();
       this._wireTopControls();
       this._wireControls();
       this._bindClickToToggle();
       this._bindProgressInteractions();
-
-      // DON'T autoplay here — initGallery decides whether to start playback
-      // show overlays briefly
       this._ensureUnifiedOverlay();
       this._showGalleryOverlayTransient();
 
-      // pointer handlers for overlay show/hide
+      // pointer handlers for overlay
       const gpArea = this.container.querySelector('.gallery-player') || this.container;
       if (gpArea) {
         gpArea.addEventListener('pointermove', this._onMouseMoveBound, { passive: true });
         gpArea.addEventListener('pointerenter', this._onMouseMoveBound, { passive: true });
         gpArea.addEventListener('pointerleave', () => { this._startOverlayHideTimer(); });
-        // mobile tap
         gpArea.addEventListener('touchend', this._onTouchTapBound, { passive: true });
       }
     }
 
+    /* ---------------- element helpers ---------------- */
+    _ensureElements() {
+      // ensure both layers exist as either iframe or video; if not, create placeholders (non-invasive)
+      if (this._domMode === 'iframe') {
+        if (!this.iframeA || !this.iframeB) {
+          // if missing, fallback to video mode
+          this._domMode = 'video';
+          this.layerA = this.layerA || this.container.querySelector('.gallery-video.layer-a');
+          this.layerB = this.layerB || this.container.querySelector('.gallery-video.layer-b');
+        } else {
+          // style
+          [this.iframeA, this.iframeB].forEach(ifr => {
+            if (!ifr) return;
+            ifr.style.position = 'absolute';
+            ifr.style.inset = '0';
+            ifr.style.width = '100%';
+            ifr.style.height = '100%';
+            ifr.style.border = '0';
+            ifr.style.objectFit = 'cover';
+            ifr.style.opacity = '0';
+            ifr.style.zIndex = '2';
+            ifr.loading = 'lazy';
+          });
+          // make A visible by default
+          if (this.iframeA) { this.iframeA.style.zIndex = 3; this.iframeA.style.opacity = '1'; }
+          if (this.iframeB) { this.iframeB.style.zIndex = 2; this.iframeB.style.opacity = '0'; }
+        }
+      }
+      if (this._domMode === 'video') {
+        // ensure video layers exist
+        this.layerA = this.layerA || this.container.querySelector('.gallery-video.layer-a');
+        this.layerB = this.layerB || this.container.querySelector('.gallery-video.layer-b');
+        if (this.layerA) { this.layerA.preload = 'metadata'; this.layerA.style.zIndex = 3; this.layerA.style.opacity = '1'; }
+        if (this.layerB) { this.layerB.preload = 'metadata'; this.layerB.style.zIndex = 2; this.layerB.style.opacity = '0'; }
+      }
+    }
+
+    /* ---------------- overlay / controls (unchanged behaviour) ---------------- */
     _ensureUnifiedOverlay() {
       if (!this.galleryOverlay) {
         this.galleryOverlay = create('div', { class: 'gallery-overlay' }, '');
@@ -738,7 +792,6 @@
         if (bar) this.galleryOverlay.appendChild(bar);
         this.container.appendChild(this.galleryOverlay);
       }
-      // ensure pointer-events on child controls are active
       this.galleryOverlay.querySelectorAll('.top-btn, .mute-btn, .fs-btn, .control-btn, .progress-wrap').forEach(el => {
         el.style.pointerEvents = 'auto';
       });
@@ -748,7 +801,6 @@
       this._showGalleryOverlay();
       this._startOverlayHideTimer();
     }
-
     _showGalleryOverlay() {
       if (!this.galleryOverlay) return;
       this.galleryOverlay.classList.add('visible');
@@ -758,64 +810,25 @@
       if (this.topOverlay) this.topOverlay.style.opacity = '1';
       if (this.bottomOverlay) this.bottomOverlay.style.opacity = '1';
     }
-
     _hideGalleryOverlay() {
       if (!this.galleryOverlay) return;
-      this.galleryOverlay.classList.remove('visible');
-      this.galleryOverlay.classList.add('hidden');
+      this.galleryOverlay.classList.remove('visible'); this.galleryOverlay.classList.add('hidden');
       this._overlayVisible = false;
       if (this.playOverlay) this.playOverlay.style.opacity = '0';
       if (this.topOverlay) this.topOverlay.style.opacity = '0';
       if (this.bottomOverlay) this.bottomOverlay.style.opacity = '0';
     }
-
     _startOverlayHideTimer(timeout = MOUSE_IDLE_MS) {
       if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; }
       const useTimeout = isMobileDevice() ? MOBILE_OVERLAY_TIMEOUT_MS : timeout;
-      this._overlayTimer = setTimeout(() => {
-        this._hideGalleryOverlay();
-        this._overlayTimer = null;
-      }, useTimeout);
+      this._overlayTimer = setTimeout(()=> { this._hideGalleryOverlay(); this._overlayTimer = null; }, useTimeout);
     }
-
-    _onMouseMove() {
-      this._showGalleryOverlay();
-      if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; }
-      this._startOverlayHideTimer();
-    }
-
+    _onMouseMove() { this._showGalleryOverlay(); if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; } this._startOverlayHideTimer(); }
     _onTouchTap(ev) {
       if (!isMobileDevice()) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        if (this._overlayVisible) {
-          this._hideGalleryOverlay();
-        } else {
-          this._showGalleryOverlay();
-          this._startOverlayHideTimer();
-        }
+        ev.preventDefault(); ev.stopPropagation();
+        if (this._overlayVisible) this._hideGalleryOverlay(); else { this._showGalleryOverlay(); this._startOverlayHideTimer(); }
       }
-    }
-
-    _setupLayers() {
-      if (this.layerA && this.layerB) {
-        const gp = this.container.querySelector('.gallery-player');
-        if (gp) { gp.style.position = 'relative'; gp.style.overflow = 'hidden'; }
-        [this.layerA, this.layerB].forEach(layer => {
-          if (!layer) return;
-          layer.addEventListener('waiting', () => this._onBuffering(layer));
-          layer.addEventListener('stalled', () => this._onBuffering(layer));
-          layer.addEventListener('playing', () => this._onPlaying(layer));
-          layer.addEventListener('canplay', () => this._onPlaying(layer));
-          layer.addEventListener('error', () => this._onPlaying(layer));
-          layer.addEventListener('ended', () => this._onVideoEnded());
-        });
-      }
-    }
-
-    _onVideoEnded() {
-      if (this.isManual) return;
-      this.next();
     }
 
     _wireTopControls() {
@@ -826,41 +839,25 @@
           const newVal = !readMute();
           writeMute(newVal);
           this.updateMuteButton();
+          // apply to current player if Vimeo
+          try {
+            const p = this._getFrontPlayer();
+            if (p && typeof p.setVolume === 'function') p.setVolume(newVal ? 0 : 1).catch(()=>{});
+          } catch(e){}
         });
       }
       if (this.topFsBtn) {
         this.topFsBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          // fullscreen action must be directly in user gesture — this is a click handler so ok
-          this.toggleFullscreen();
+          // attempt to request fullscreen on front element
+          try {
+            const frontEl = (this._domMode === 'iframe') ? this._getFrontIframe() : this._getFrontLayer();
+            if (frontEl && frontEl.requestFullscreen) frontEl.requestFullscreen().catch(()=>{});
+          } catch(e){}
           this.updateFullscreenButton();
         });
       }
       ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(ev => document.addEventListener(ev, ()=> this.updateFullscreenButton()));
-    }
-
-    // Improved fullscreen handling for various mobile/desktop browsers
-    toggleFullscreen() {
-      try {
-        // Prefer calling fullscreen on the front video element on iOS (webkitEnterFullscreen)
-        const frontVideo = this._getFrontLayer();
-        if (frontVideo && typeof frontVideo.webkitEnterFullscreen === 'function') {
-          // iOS native fullscreen on video element
-          try { frontVideo.webkitEnterFullscreen(); return; } catch(e){ /* fallback below */ }
-        }
-        // Standard fullscreen on container (Chrome/Firefox/Android)
-        const el = this.container || frontVideo;
-        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-          if (el.requestFullscreen) { el.requestFullscreen().catch(()=>{}); }
-          else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); }
-          else if (el.mozRequestFullScreen) { el.mozRequestFullScreen(); }
-          else if (el.msRequestFullscreen) { el.msRequestFullscreen(); }
-        } else {
-          if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
-          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        }
-      } catch (e) { console.warn('[fullscreen] failed', e); }
-      setTimeout(()=> this.updateFullscreenButton(), 250);
     }
 
     updateFullscreenButton() {
@@ -876,53 +873,6 @@
       if (this.nextBtn) this.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); this._onUserInteraction(); this.next(); });
     }
 
-    _onBuffering(layer) {
-      if (this.playOverlay) {
-        this.playOverlay.classList.add('buffering');
-        this.playOverlay.classList.remove('paused');
-        this.playOverlay.style.display = 'flex';
-        this.playOverlay.style.opacity = '1';
-      }
-    }
-
-    _onPlaying(layer) {
-      if (this.playOverlay) {
-        this.playOverlay.classList.remove('buffering');
-        if (!this._getFrontLayer() || this._getFrontLayer().paused) {
-          this.playOverlay.classList.add('paused');
-          this.playOverlay.style.display = 'flex';
-          this.playOverlay.style.opacity = '1';
-        } else {
-          this.playOverlay.classList.remove('paused');
-          if (!this.playOverlay.classList.contains('paused') && !this.playOverlay.classList.contains('buffering')) {
-            this.playOverlay.style.opacity = '0';
-            setTimeout(()=> { try { this.playOverlay.style.display = 'none'; } catch (e){} }, 220);
-          }
-        }
-      }
-    }
-
-    updateMuteButton() {
-      const muted = readMute();
-      if (this.topMuteBtn) {
-        this.topMuteBtn.classList.toggle('muted', !!muted);
-        this.topMuteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
-      }
-      if (this.layerA) this.layerA.muted = !!muted;
-      if (this.layerB) this.layerB.muted = !!muted;
-    }
-
-    toggleMute() {
-      const newVal = !readMute();
-      writeMute(newVal);
-      this.updateMuteButton();
-    }
-
-    _attachInteractionListeners() {
-      this.container.addEventListener('pointerdown', this._boundOnInteraction, { passive: true });
-      document.addEventListener('keydown', this._boundOnInteraction);
-    }
-
     _onUserInteraction() {
       if (!this.isManual) {
         this.isManual = true;
@@ -931,14 +881,12 @@
       }
     }
 
-    clearAutoplay() {
-      if (this.autoplayTimer) { clearInterval(this.autoplayTimer); this.autoplayTimer = null; }
-    }
-
+    clearAutoplay() { if (this.autoplayTimer) { clearInterval(this.autoplayTimer); this.autoplayTimer = null; } }
     resetAutoplay() {
       this.clearAutoplay();
       if (this.isManual) return;
-      this.autoplayTimer = setInterval(() => { this.next(); }, GALLERY_AUTOPLAY_INTERVAL_MS);
+      // rely on 'ended' events; fallback interval
+      this.autoplayTimer = setInterval(()=> { this.next(); }, GALLERY_AUTOPLAY_INTERVAL_MS);
     }
 
     setSlides(slides) {
@@ -960,6 +908,15 @@
       this.playIndex(nextIndex);
     }
 
+    /* ---------------- compatibility helpers ---------------- */
+    _getFrontIframe() { return this.iframeA && this.iframeB ? ((this.front === 'A') ? this.iframeA : this.iframeB) : null; }
+    _getBackIframe()  { return this.iframeA && this.iframeB ? ((this.front === 'A') ? this.iframeB : this.iframeA) : null; }
+    _getFrontLayer()  { return this.layerA && this.layerB ? ((this.front === 'A') ? this.layerA : this.layerB) : null; }
+    _getBackLayer()   { return this.layerA && this.layerB ? ((this.front === 'A') ? this.layerB : this.layerA) : null; }
+    _getFrontPlayer() { return (this.front === 'A') ? this.players.A : this.players.B; }
+    _getBackPlayer()  { return (this.front === 'A') ? this.players.B : this.players.A; }
+
+    /* ---------------- core: playIndex (Vimeo if vimeoId present, else HLS/video fallback) ---------------- */
     async playIndex(i, opts = {}) {
       if (!this.slides || !this.slides.length) return;
       i = (i + this.slides.length) % this.slides.length;
@@ -967,65 +924,55 @@
       if (!meta) return;
       if (opts.userTriggered) this._onUserInteraction();
 
-      const backLayer = (this.front === 'A') ? this.layerB : this.layerA;
-      const frontLayer = (this.front === 'A') ? this.layerA : this.layerB;
+      // If slide indicates a Vimeo source -> use Vimeo flow
+      if (meta.vimeoId || meta.iframe || meta.embedUrl) {
+        if (this._domMode !== 'iframe') {
+          // switch to iframe mode if possible
+          this._domMode = 'iframe';
+          this.iframeA = this.iframeA || this.container.querySelector('.gallery-iframe.layer-a');
+          this.iframeB = this.iframeB || this.container.querySelector('.gallery-iframe.layer-b');
+          this._ensureElements();
+        }
+        await this._playIndexVimeo(i, meta, opts);
+        this.currentIndex = i;
+        this.resetAutoplay();
+        return;
+      }
 
-      // stop previous back layer work & detach HLS if any
+      // FALLBACK: legacy video/HLS flow (uses attachSource + safePlay)
+      const backLayer = this._getBackLayer();
+      const frontLayer = this._getFrontLayer();
       try { backLayer.pause(); } catch(e) {}
       try { destroyHlsForEl(backLayer); backLayer.removeAttribute('src'); } catch(e) {}
 
       const sourceUrl = meta.hls || meta.mp4 || meta.src || '';
-      // attachSource resolves on canplay (or timeout) -> good for preparing first frame
-      try {
-        await attachSource(backLayer, sourceUrl);
-      } catch(e) {
-        console.warn('[gallery] attachSource failed', e);
-      }
+      try { await attachSource(backLayer, sourceUrl); } catch(e) { console.warn('[gallery] attachSource failed', e); }
 
-      // set mute state
       const muted = readMute();
-      backLayer.muted = !!muted;
-      frontLayer.muted = !!muted;
+      if (backLayer) backLayer.muted = !!muted;
+      if (frontLayer) frontLayer.muted = !!muted;
 
-      // ensure start at 0
       try { backLayer.currentTime = 0; } catch(e){}
-
-      // Try to play the back layer and wait until it actually starts playing
       const playOk = await safePlay(backLayer);
       if (!playOk) {
         console.warn('[gallery] safePlay failed for backLayer, aborting direct cut');
-        // update state/title but don't cut
         this.currentIndex = i;
         this._syncTitle(meta.title);
         try { saveSessionVideo(meta.id); } catch(e){}
         return;
       }
 
-      // ===== DIRECT CUT (no crossfade) =====
+      // direct cut (video)
       try {
-        // Put backLayer visually on top
-        backLayer.style.zIndex = 3;
-        frontLayer.style.zIndex = 2;
-
-        // Immediately show back layer and hide front layer (no transitions)
-        // IMPORTANT: ensure CSS doesn't animate opacity; we set inline styles for immediacy
-        backLayer.style.transition = 'none';
-        frontLayer.style.transition = 'none';
-
-        backLayer.style.opacity = '1';
-        frontLayer.style.opacity = '0';
-
-        // Pause front layer and reset its time AFTER the cut
-        try { frontLayer.pause(); frontLayer.currentTime = 0; } catch(e){}
-
-        // flip the front marker
+        backLayer.style.zIndex = 3; frontLayer.style.zIndex = 2;
+        backLayer.style.transition = 'none'; if (frontLayer) frontLayer.style.transition = 'none';
+        backLayer.style.opacity = '1'; if (frontLayer) frontLayer.style.opacity = '0';
+        try { if (frontLayer) { frontLayer.pause(); frontLayer.currentTime = 0; } } catch(e){}
         this.front = (this.front === 'A') ? 'B' : 'A';
-
-        // post-switch bookkeeping
         this._onAfterPlaySwitch(i, meta);
       } catch (e) {
-        console.warn('[gallery] direct cut fallback', e);
-        try { frontLayer.pause(); frontLayer.currentTime = 0; } catch(e){}
+        console.warn('[gallery] video direct cut fallback', e);
+        try { if (frontLayer) { frontLayer.pause(); frontLayer.currentTime = 0; } } catch(e){}
         this.front = (this.front === 'A') ? 'B' : 'A';
         this._onAfterPlaySwitch(i, meta);
       }
@@ -1033,38 +980,186 @@
       this.currentIndex = i;
       this.resetAutoplay();
       this._startProgressLoop();
-
       try { saveSessionVideo(meta.id); } catch(e){}
     }
 
+    /* ---------------- Vimeo-specific play (preload back iframe -> ready -> cut) ---------------- */
+    async _playIndexVimeo(i, meta, opts = {}) {
+      if (!window.Vimeo || typeof window.Vimeo.Player !== 'function') {
+        console.warn('[vimeo] Player API not found. Make sure <script src="https://player.vimeo.com/api/player.js"></script> is loaded before main.js');
+        return;
+      }
 
+      const backIframe = this._getBackIframe();
+      const frontIframe = this._getFrontIframe();
+      const backKey = (this.front === 'A') ? 'B' : 'A';
+      const frontKey = this.front;
+
+      // unload previous back player if any
+      try {
+        if (this.players[backKey]) { try { await this.players[backKey].unload(); } catch(e){} this.players[backKey] = null; }
+      } catch(e){}
+
+      // construct url
+      const base = meta.iframe ? meta.iframe : (`https://player.vimeo.com/video/${encodeURIComponent(meta.vimeoId)}`);
+      const params = {
+        autoplay: (opts.autoplay === false) ? '0' : '1',
+        muted: readMute() ? '1' : '0',
+        playsinline: '1'
+      };
+
+      if (USE_OWN_OVERLAY) {
+        params.title = '0';
+        params.byline = '0';
+        params.portrait = '0';
+        params.controls = '0'; // rimuove controlli nativi (noi useremo API)
+      } else {
+
+      }
+
+      const qs = new URLSearchParams(params).toString();
+      const url = base + (base.includes('?') ? '&' + qs : '?' + qs);
+
+      try {
+        backIframe.src = url;
+        backIframe.style.opacity = '0';
+        backIframe.style.zIndex = 4;
+      } catch(e){ console.warn('[vimeo] set src failed', e); }
+
+      if (USE_OWN_OVERLAY) {
+        backIframe.style.pointerEvents = 'none';
+        // anche frontIframe
+        if (frontIframe) frontIframe.style.pointerEvents = 'none';
+      } else {
+        backIframe.style.pointerEvents = ''; // default
+        if (frontIframe) frontIframe.style.pointerEvents = '';
+      }
+
+      // create player instance
+      let backPlayer = null;
+      try {
+        backPlayer = new Vimeo.Player(backIframe);
+        this.players[backKey] = backPlayer;
+      } catch (e) {
+        console.warn('[vimeo] Player creation failed', e);
+        this.players[backKey] = null;
+      }
+
+      // wait until ready/loaded
+      const waitReady = async (p, timeout = 7000) => {
+        if (!p) return false;
+        try { await p.ready(); } catch(e){}
+        return new Promise(res => {
+          let done = false;
+          const finish = (ok) => { if (done) return; done = true; res(!!ok); };
+          const to = setTimeout(() => finish(false), timeout);
+          try {
+            p.once('loaded', () => { clearTimeout(to); finish(true); });
+            // fallback: treat ready as enough after short delay
+            setTimeout(() => { if (!done) { clearTimeout(to); finish(true); } }, 450);
+          } catch(e){ clearTimeout(to); finish(false); }
+        });
+      };
+
+      const ready = await waitReady(backPlayer).catch(()=>false);
+      if (!ready) console.warn('[vimeo] back player not confirmed ready (timeout)');
+
+      // get aspect ratio
+      try {
+        // se l'API espone getVideoHeight/getVideoWidth
+        Promise.all([
+          backPlayer.getVideoWidth ? backPlayer.getVideoWidth() : Promise.resolve(null),
+          backPlayer.getVideoHeight ? backPlayer.getVideoHeight() : Promise.resolve(null)
+        ]).then(([w,h]) => {
+          if (w && h) {
+            const wrap = this.container.querySelector('.gallery-player') || this.container;
+            // usa aspect-ratio CSS (browser moderni)
+            if ('aspectRatio' in document.documentElement.style || 'aspect-ratio' in document.documentElement.style) {
+              try {
+                wrap.style.aspectRatio = (w / h).toString();
+                // assicurati che wrap non abbia height fissa, usa width:100% e aspect-ratio
+                wrap.style.width = '100%';
+                // rimuovi eventuali altezza forzate
+                wrap.style.height = '';
+              } catch (e) {}
+            } else {
+              // fallback: calcola height in px based on container width
+              const parentWidth = wrap.clientWidth || wrap.offsetWidth || wrap.getBoundingClientRect().width;
+              if (parentWidth) {
+                wrap.style.height = Math.round(parentWidth * (h / w)) + 'px';
+              }
+            }
+          } else {
+            // se non disponibili, puoi comunque lasciare il wrapper responsive (default)
+          }
+        }).catch(()=>{});
+      } catch (e) {}
+
+      // wire events for progress & ended
+      try {
+        backPlayer.off && backPlayer.off('timeupdate');
+        backPlayer.on && backPlayer.on('timeupdate', (data) => {
+          try {
+            backPlayer.getDuration().then(duration => {
+              if (duration && this.progressBar) {
+                const pct = (data.seconds / duration) * 100;
+                this.progressBar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+                this.progressBar.setAttribute('aria-valuenow', String(Math.round(Math.max(0, Math.min(100, pct)))));
+              }
+            }).catch(()=>{});
+          } catch(e){}
+        });
+        backPlayer.on && backPlayer.on('ended', () => { this.next(); });
+        backPlayer.on && backPlayer.on('bufferstart', () => { if (this.playOverlay) this.playOverlay.classList.add('buffering'); });
+        backPlayer.on && backPlayer.on('bufferend', () => { if (this.playOverlay) this.playOverlay.classList.remove('buffering'); });
+      } catch(e){}
+
+      // direct cut: show back, hide front, then unload front player
+      try {
+        backIframe.style.transition = 'none';
+        frontIframe && (frontIframe.style.transition = 'none');
+        backIframe.style.opacity = '1';
+        backIframe.style.zIndex = 3;
+        if (frontIframe) { frontIframe.style.opacity = '0'; frontIframe.style.zIndex = 2; }
+
+        setTimeout(async () => {
+          try {
+            if (this.players[frontKey]) {
+              try { await this.players[frontKey].unload(); } catch(e) {}
+              this.players[frontKey] = null;
+            } else if (frontIframe) {
+              try { frontIframe.removeAttribute('src'); } catch(e){}
+            }
+          } catch(e){}
+        }, 220);
+      } catch (e) {
+        console.warn('[vimeo] cut failed', e);
+      }
+
+      // update state & UI
+      this.front = backKey;
+      this.currentIndex = i;
+      this._syncTitle(meta.title);
+      try { saveSessionVideo(meta.id || meta.vimeoId); } catch(e){}
+      this.resetAutoplay();
+
+      // apply mute state
+      try { if (backPlayer && typeof backPlayer.setVolume === 'function') { const vol = readMute() ? 0 : 1; backPlayer.setVolume(vol).catch(()=>{}); } } catch(e){}
+    }
 
     _onAfterPlaySwitch(i, meta) {
-      this._syncTitle(meta.title);
-      this._flashOverlay();
-      this._startProgressLoop();
-      this._highlightGridItem(i);
-      try {
-        const grid = document.getElementById('galleryGrid');
-        if (!this.isManual) focusGridItem(grid, i);
-      } catch (e) {}
-      // preload next
-      const nextIndex = (i + 1) % this.slides.length;
-      const inactiveLayer = (this.front === 'A') ? this.layerB : this.layerA;
-      const preUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src)) || '';
-      if (preUrl) {
-        // non attendere, ma avvia attachSource in background per far arrivare il canplay prima possibile
+      // keep old behaviour for video path
+      try { this._syncTitle(meta.title); this._flashOverlay(); this._startProgressLoop(); this._highlightGridItem(i); if (!this.isManual) { const grid = document.getElementById('galleryGrid'); if (grid) focusGridItem(grid, i); } } catch(e){}
+      // preload next handled in Vimeo or video code where applicable
+      const nextIndex = (i + 1) % (this.slides.length || 1);
+      const inactiveLayer = (this.front === 'A') ? (this._domMode === 'iframe' ? this.iframeB : this.layerB) : (this._domMode === 'iframe' ? this.iframeA : this.layerA);
+      const preUrl = (this.slides[nextIndex] && (this.slides[nextIndex].hls || this.slides[nextIndex].mp4 || this.slides[nextIndex].src || this.slides[nextIndex].iframe || this.slides[nextIndex].vimeoId)) || '';
+      if (preUrl && this._domMode === 'video') {
         setTimeout(()=> { attachSource(inactiveLayer, preUrl).catch(()=>{}); }, 150);
       }
     }
 
     _syncTitle(t) { if (this.titleEl) this.titleEl.textContent = t || ''; }
-
-    _flashOverlay() {
-      this._showGalleryOverlayTransient();
-    }
-
-    _getFrontLayer() { return (this.front === 'A') ? this.layerA : this.layerB; }
 
     _startProgressLoop() {
       if (this._rafId) return;
@@ -1072,11 +1167,13 @@
       this._rafId = requestAnimationFrame(loop);
     }
 
-    _stopProgressLoop() {
-      if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
-    }
+    _stopProgressLoop() { if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; } }
 
     _updateProgressAndBuffer() {
+      if (this._domMode === 'iframe') {
+        // progress handled by Vimeo timeupdate events; keep as no-op or safeguard
+        return;
+      }
       const layer = this._getFrontLayer();
       const bar = this.progressBar;
       const buf = this.progressBuffer;
@@ -1097,7 +1194,6 @@
           buf.style.width = bufPct + '%';
         } catch (e) { buf.style.width = '0%'; }
       } else if (buf) buf.style.width = '0%';
-
       if (layer.paused && this.isManual) this._stopProgressLoop();
     }
 
@@ -1105,28 +1201,30 @@
       const playerArea = this.container.querySelector('.gallery-player') || this.container;
       if (!playerArea) return;
       playerArea.addEventListener('click', (ev) => {
-        // ignore clicks that originate from progress controls or control buttons (they should stopPropagation)
-        if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn') || ev.target.closest('.top-btn') ) return;
-        const front = this._getFrontLayer();
-        if (!front) return;
-        if (front.paused) {
-          front.play().catch(()=>{});
-          this._onUserInteraction();
-          this._startProgressLoop();
-          this._showGalleryOverlayTransient();
-        } else {
-          front.pause();
-          this._onUserInteraction();
-          this._stopProgressLoop();
-          this._showPausedOverlay();
-        }
+        if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn') || ev.target.closest('.top-btn')) return;
+        // Vimeo: toggle via API; Video: toggle native video
+        try {
+          if (this._domMode === 'iframe') {
+            const p = this._getFrontPlayer();
+            if (p && typeof p.getPaused === 'function') {
+              p.getPaused().then(paused => { if (paused) p.play().catch(()=>{}); else p.pause().catch(()=>{}); });
+            } else {
+              // fallback: just toggle overlay
+              if (this._overlayVisible) this._hideGalleryOverlay(); else this._showGalleryOverlayTransient();
+            }
+          } else {
+            const front = this._getFrontLayer();
+            if (!front) return;
+            if (front.paused) { front.play().catch(()=>{}); this._onUserInteraction(); this._startProgressLoop(); this._showGalleryOverlayTransient(); }
+            else { front.pause(); this._onUserInteraction(); this._stopProgressLoop(); this._showPausedOverlay(); }
+          }
+        } catch (e){}
       });
     }
 
     _bindProgressInteractions() {
       const wrap = this.progressWrap;
       if (!wrap) return;
-      // prevent clicks on progress from bubbling to playerArea (which toggles play/pause)
       wrap.addEventListener('click', (ev) => { ev.stopPropagation(); });
 
       let dragging = false; let pointerId = null;
@@ -1136,12 +1234,19 @@
         const rect = wrap.getBoundingClientRect();
         const x = ev.clientX - rect.left;
         const frac = clamp(x / rect.width);
-        const front = this._getFrontLayer();
-        const dur = front && front.duration ? front.duration : 0;
-        if (dur > 0) { try { front.currentTime = frac * dur; } catch(e){} if (this.progressBar) this.progressBar.style.width = (frac*100) + '%'; }
+        if (this._domMode === 'iframe') {
+          // try seek via Vimeo API if available
+          const p = this._getFrontPlayer();
+          if (p && typeof p.getDuration === 'function') {
+            p.getDuration().then(duration => { if (duration) p.setCurrentTime(frac * duration).catch(()=>{}); }).catch(()=>{});
+          }
+        } else {
+          const front = this._getFrontLayer();
+          const dur = front && front.duration ? front.duration : 0;
+          if (dur > 0) { try { front.currentTime = frac * dur; } catch(e){} if (this.progressBar) this.progressBar.style.width = (frac*100) + '%'; }
+        }
       };
 
-      // pointerdown needs passive:false so preventDefault can work on mobile
       wrap.addEventListener('pointerdown', (ev) => {
         ev.preventDefault && ev.preventDefault();
         ev.stopPropagation();
@@ -1158,8 +1263,12 @@
         try { wrap.releasePointerCapture?.(pointerId); } catch(e){}
         wrap.classList.remove('dragging');
         pointerId = null;
-        const front = this._getFrontLayer();
-        if (front && !front.paused) this._startProgressLoop();
+        if (this._domMode === 'iframe') {
+          // nothing else; Vimeo will continue playing
+        } else {
+          const front = this._getFrontLayer();
+          if (front && !front.paused) this._startProgressLoop();
+        }
       };
       wrap.addEventListener('pointerup', (ev) => { ev.preventDefault && ev.preventDefault(); ev.stopPropagation(); stopDrag(ev); }, { passive: false });
       wrap.addEventListener('pointercancel', stopDrag);
@@ -1180,9 +1289,6 @@
       if (this.topOverlay) { this.topOverlay.classList.add('paused'); this.topOverlay.style.display = 'flex'; this.topOverlay.style.opacity = '1'; }
     }
 
-    _showOverlays() { this._showGalleryOverlay(); this._startOverlayHideTimer(); }
-    _hideOverlays() { this._hideGalleryOverlay(); }
-
     _highlightGridItem(index) {
       try {
         const grid = document.getElementById('galleryGrid');
@@ -1193,16 +1299,40 @@
       } catch (e) {}
     }
 
+    updateMuteButton() {
+      const muted = readMute();
+      if (this.topMuteBtn) {
+        this.topMuteBtn.classList.toggle('muted', !!muted);
+        this.topMuteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      }
+      // apply to players
+      try {
+        if (this._domMode === 'iframe') {
+          const p = this._getFrontPlayer();
+          if (p && typeof p.setVolume === 'function') { const vol = muted ? 0 : 1; p.setVolume(vol).catch(()=>{}); }
+        } else {
+          if (this.layerA) this.layerA.muted = !!muted;
+          if (this.layerB) this.layerB.muted = !!muted;
+        }
+      } catch(e){}
+    }
+
     destroy() {
       this.clearAutoplay();
       this._stopProgressLoop();
       if (this._pauseTimeoutId) { clearTimeout(this._pauseTimeoutId); this._pauseTimeoutId = null; }
-      try { this.layerA.pause(); this.layerB.pause(); } catch (e) {}
-      destroyHlsForEl(this.layerA);
-      destroyHlsForEl(this.layerB);
+      // Vimeo unload
+      try {
+        if (this.players.A) { try { this.players.A.unload(); } catch(e){} this.players.A = null; }
+        if (this.players.B) { try { this.players.B.unload(); } catch(e){} this.players.B = null; }
+      } catch(e){}
+      // video cleanup
+      try { if (this.layerA) { try { this.layerA.pause(); } catch(e){} destroyHlsForEl(this.layerA); } } catch(e){}
+      try { if (this.layerB) { try { this.layerB.pause(); } catch(e){} destroyHlsForEl(this.layerB); } } catch(e){}
       if (this._overlayTimer) { clearTimeout(this._overlayTimer); this._overlayTimer = null; }
     }
   }
+
 
   /* ---------------- Home init ---------------- */
   let homeCarousel = null;

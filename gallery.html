@@ -9,6 +9,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" async></script>
   <script src="https://unpkg.com/@barba/core@2.9.7/dist/barba.umd.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://player.vimeo.com/api/player.js"></script>
   <script src="js/main.js" defer></script>
 </head>
 <body class="page-gallery">
@@ -40,8 +41,12 @@
         <!-- gallery player: doppio video per crossfade -->
         <section class="gallery" id="galleryCarouselSection" aria-roledescription="gallery player">
           <div class="gallery-player" aria-hidden="false" role="region" aria-label="Player galleria">
-            <video class="gallery-video layer-a" playsinline></video>
-            <video class="gallery-video layer-b" playsinline></video>
+            <!-- <video class="gallery-video layer-a" playsinline></video>
+            <video class="gallery-video layer-b" playsinline></video> -->
+
+            <iframe class="gallery-iframe layer-a" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
+            <iframe class="gallery-iframe layer-b" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
+
 
             <!-- gallery overlay -->
             <div class="gallery-overlay" aria-hidden="false">
