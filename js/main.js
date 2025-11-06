@@ -4,15 +4,15 @@
 (() => {
   /* ---------------- CONFIG / TIMINGS ---------------- */
   const GALLERY_AUTOPLAY_INTERVAL_MS = 5000;
-  const MOUSE_IDLE_MS = 2000;
+  const MOUSE_IDLE_MS = 1600;
   const MOBILE_OVERLAY_TIMEOUT_MS = 1600;
 
   // behavior flags (modifica se vuoi)
   const USE_VIMEO_OVERLAY = false;
-  const ADAPT_ASPECT_RATIO = true;
-  const MAX_PLAYER_HEIGHT_PX = 800;          // max height allowed when adapting to video's aspect
-  const ASPECT_RATIO_TRANSITION_MS = 1000;
-  const AUTOPLAY_FIXED_HEIGHT_PX = 600;      // fixed height while autoplaying
+  const ADAPT_ASPECT_RATIO = false;
+  const MAX_PLAYER_HEIGHT_PX = 700;          // max height allowed when adapting to video's aspect
+  const ASPECT_RATIO_TRANSITION_MS = 2000;
+  const AUTOPLAY_FIXED_HEIGHT_PX = 500;      // fixed height while autoplaying
   const AUTOPLAY_PRELOAD_ENABLED = true;     // preload/back-play during autoplay for smooth cut
 
   // Scroll-to-player toggles (user asked for desktop/mobile options)
@@ -396,6 +396,20 @@
   function escapeHtml(str) { return String(str||'').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
   function isMobileDevice() { return ('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent); }
 
+  async function safePlay(player, timeoutMs = 1200) {
+    if (!player || typeof player.play !== 'function') return;
+    try {
+      await Promise.race([
+        player.play(),
+        new Promise(r => setTimeout(r, timeoutMs))
+      ]);
+    } catch (e) {
+      const msg = String((e && (e.name || e.message)) || '');
+      if (/PlayInterrupted|The play\(\) request was interrupted|AbortError/i.test(msg)) return;
+      console.warn('[vimeo] play failed', e);
+    }
+  }
+
   /* ---------------- SESSION (filters, video, mute) ---------------- */
   const SESSION_FILTERS_KEY = 'gallery_last_filters';
   const SESSION_VIDEO_KEY = 'gallery_last_video';
@@ -435,53 +449,298 @@
     });
   }
 
-  /* ---------------- HomeCarousel (Vimeo) - kept minimal, CSS sets full-screen behavior on home */
+  /* ------------- HomeCarousel  --------------- */
   class HomeCarousel {
     constructor(opts) {
       this.container = opts.container;
       this.slides = opts.slides || [];
       this.iframeA = this.container.querySelector('.layer-a');
       this.iframeB = this.container.querySelector('.layer-b');
-      this.active = 'A';
+      this.bottomOverlay = this.container.querySelector('.home-carousel-bottom') || null;
+      this.front = 'A';
+      this.players = { A: null, B: null };
       this.index = 0;
       this.timer = null;
-      this._ensureIframes();
-      if (!this.slides.length && Array.isArray(VIDEOS) && VIDEOS.length) this.slides = VIDEOS.slice(0, Math.min(6, VIDEOS.length));
-      if (this.slides.length) this._loadInitial();
+      this._onEnded = this._onEnded.bind(this);
+
+      // if (!this.slides.length && Array.isArray(VIDEOS) && VIDEOS.length) {
+      //   this.slides = VIDEOS.slice(0, Math.min(5, VIDEOS.length));
+      // }
+
+      // if (this.slides.length) this._loadInitial();
+
+      this._init();
     }
-    _ensureIframes() {
-      if (!this.iframeA) {
-        this.iframeA = create('iframe', { class:'layer-a', frameborder:'0', allow:'autoplay; fullscreen', allowfullscreen:'' });
-        this.container.appendChild(this.iframeA);
+
+    _init() {
+      if (!this.bottomOverlay) {
+        this.bottomOverlay = create('div', { class: 'home-carousel-bottom' }, '');
+        this.container.appendChild(this.bottomOverlay);
       }
-      if (!this.iframeB) {
-        this.iframeB = create('iframe', { class:'layer-b', frameborder:'0', allow:'autoplay; fullscreen', allowfullscreen:'' });
-        this.container.appendChild(this.iframeB);
-      }
-      [this.iframeA, this.iframeB].forEach(iframe => {
-        iframe.style.position = 'absolute'; iframe.style.inset = '0'; iframe.style.width = '100%'; iframe.style.height = '100%';
+      this._renderOverlay('', '');
+
+      // overlay click -> navigate to gallery + category/video hash
+      this.bottomOverlay.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const meta = this.slides[this.index];
+        if (!meta) return;
+        const targetHash = meta.galleryId ? `#${encodeURIComponent(meta.category || '')}/${encodeURIComponent(meta.galleryId)}` : `#${encodeURIComponent(meta.category || '')}`;
+        // navigate to gallery route — let router / caddy handle pretty urls
+        location.href = '/gallery' + targetHash;
       });
+
+      this._loadInitial();
     }
-    async _loadInitial(){
-      const meta = this.slides[this.index];
-      if (!meta) return;
-      const vId = meta.vimeoId || meta.id;
-      if (!vId) return;
-      const src = `https://player.vimeo.com/video/${encodeURIComponent(vId)}?autoplay=1&muted=1&controls=0&title=0&byline=0&portrait=0&playsinline=1`;
-      try { this.iframeA.src = src; } catch(e){}
-      this._startAutoplay();
+
+    _getFrontIframe(){ return (this.front === 'A') ? this.iframeA : this.iframeB; }
+    _getBackIframe(){ return (this.front === 'A') ? this.iframeB : this.iframeA; }
+    _getFrontPlayer(){ return (this.front === 'A') ? this.players.A : this.players.B; }
+    _getBackPlayer(){ return (this.front === 'A') ? this.players.B : this.players.A; }
+
+    async _loadInitial() {
+      const currVideo = this.slides[this.index];
+      const nextVideo = this.slides[(this.index + 1) % this.slides.length];
+      const currentVideoId = currVideo.vimeoId || currVideo.id;
+      if (!currentVideoId) { console.warn(`[HomeCarousel] ${this.index} slide without vimeoId`); return; }
+      const nextVideoId = nextVideo.vimeoId || nextVideo.id;
+      if (!nextVideoId) { console.warn(`[HomeCarousel] ${this.index + 1} slide without vimeoId`); return; }
+      const params = new URLSearchParams({
+        autopause: '0',
+        autoplay: '1',
+        muted: '1',
+        playsinline: '1',
+        controls: '0',
+        title: '0',
+        byline: '0',
+        portrait: '0'
+      }).toString();
+      const url = `https://player.vimeo.com/video/${encodeURIComponent(currentVideoId)}?${params}`;
+      const nextUrl = `https://player.vimeo.com/video/${encodeURIComponent(nextVideoId)}?${params}`;
+
+      // destroy previous players if exist
+      if (this.players.A) {
+        try { await this.players.A.unload(); } catch(e){} this.players.A = null;
+      }
+
+      if (this.players.B) {
+        try { await this.players.B.unload(); } catch(e){} this.players.B = null;
+      }
+
+      // set iframes
+      try {
+        this.iframeA.src = url;
+        this.iframeA.style.opacity = 1;
+        this.iframeA.style.zIndex = 3;
+        this.iframeA.style.pointerEvents = 'none';
+      } catch(e){ console.warn('[vimeo] iframe A set src failed', e); }
+
+      try {
+        this.iframeB.src = nextUrl;
+        this.iframeB.style.opacity = 0;
+        this.iframeB.style.zIndex = 4;
+        this.iframeB.style.pointerEvents = 'none';
+      } catch(e){ console.warn('[vimeo] iframe B set src failed', e); }
+
+      // create vimeo players
+      let frontPlayer = null;
+      try {
+        frontPlayer = new Vimeo.Player(this.iframeA);
+        this.players.A = frontPlayer;
+      } catch(e){ console.warn('[vimeo] playerA create failed', e); this.players.A = null; }
+
+      let backPlayer = null;
+      try {
+        backPlayer = new Vimeo.Player(this.iframeB);
+        this.players.B = backPlayer;
+      } catch(e){ console.warn('[vimeo] playerB create failed', e); this.players.B = null; }
+
+      // wait for ready (with timeout)
+      let frontReady = false;
+      try {
+        await Promise.race([
+          frontPlayer && frontPlayer.ready ? frontPlayer.ready() : Promise.resolve(),
+          new Promise(r => setTimeout(r, 2200))
+        ]);
+        frontReady = true;
+      } catch(e){ frontReady = false; }
+
+      let backReady = false;
+      try {
+        await Promise.race([
+          backPlayer && backPlayer.ready ? backPlayer.ready() : Promise.resolve(),
+          new Promise(r => setTimeout(r, 2200))
+        ]);
+        backReady = true;
+      } catch(e){ backReady = false; }
+
+      // play front player
+      try { await frontPlayer.play().catch((e)=>{ console.warn('front play failed', e); }); } catch(e){ console.warn('front play failed', e); }
+      // try { await safePlay(frontPlayer); } catch(e){ console.warn('front play failed', e); }
+      this._renderOverlay(currVideo.title || '', currVideo.desc || '');
+
+      // pause back player
+      try { await backPlayer.pause().catch((e)=>{ console.warn('back pause failed', e); }); } catch(e){ console.warn('back pause failed', e); }
+
+      // advances when video end
+      frontPlayer.on('ended', this._onEnded);
     }
-    _startAutoplay(){ if(this.timer) clearInterval(this.timer); this.timer = setInterval(()=>this._advance(), GALLERY_AUTOPLAY_INTERVAL_MS); }
-    _advance(){
-      if (!this.slides.length) return;
+
+    async _switchIframes() {
+      let frontIframe = this._getFrontIframe();
+      let backIframe = this._getBackIframe();
+      let frontPlayer = this._getFrontPlayer();
+      let backPlayer = this._getBackPlayer();
+      let currVideo;
+      let back = (this.front === 'A') ? 'B' : 'A';
+
+      // Remove old listener first
+      try {
+        frontPlayer.off('ended', this._onEnded);
+      } catch(e) {}
+
+      // switch z-index + opacity
+      try {
+        frontIframe.style.opacity = 0;
+        frontIframe.style.zIndex = 4;
+        backIframe.style.opacity = 1;
+        backIframe.style.zIndex = 3;
+      } catch(e){ console.warn('switch iframes failed', e); }
+
+      // swap marker
+      this.front = back;
+      back = (this.front === 'A') ? 'B' : 'A';
+      frontIframe = this._getFrontIframe();
+      backIframe = this._getBackIframe();
+      frontPlayer = this._getFrontPlayer();
+      backPlayer = this._getBackPlayer();
+
+      // advance index
       this.index = (this.index + 1) % this.slides.length;
-      const meta = this.slides[this.index]; if (!meta) return;
-      const vId = meta.vimeoId || meta.id; if (!vId) return;
-      const url = `https://player.vimeo.com/video/${encodeURIComponent(vId)}?autoplay=1&muted=1&controls=0&title=0&byline=0&portrait=0&playsinline=1`;
-      const inactive = (this.active==='A') ? this.iframeB : this.iframeA;
-      try { inactive.src = url; inactive.style.opacity = '1'; const active = (this.active==='A') ? this.iframeA : this.iframeB; active.style.opacity = '0'; this.active = (this.active==='A') ? 'B' : 'A'; } catch(e){}
+      currVideo = this.slides[this.index];
+
+      // play new front player
+      try { await frontPlayer.play().catch((e)=>{ console.warn('new front play failed', e); }); } catch(e){ console.warn('new front play failed', e); }
+      // try { await safePlay(frontPlayer); } catch(e){ console.warn('new front play failed', e); }
+      this._renderOverlay(currVideo.title || '', currVideo.desc || '');
+
+      // destroy previous back player instance if exists
+      // if (backPlayer) {
+      //   try { await backPlayer.unload(); } catch(e){}  backPlayer = null;
+      // }
+
+      setTimeout(async ()=> {
+        try {
+          if (backPlayer) { await backPlayer.unload(); backPlayer = null; }
+          else if (backIframe) { try { backIframe.removeAttribute('src'); } catch(e){} }
+        } catch(e){}
+      }, 300);
+
+      // set backIframe src to next video
+      const nextIndex = (this.index + 1) % this.slides.length;
+      const nextVideo = this.slides[nextIndex];
+      const nextVideoId = nextVideo.vimeoId || nextVideo.id;
+      const params = new URLSearchParams({
+        autopause: '0',
+        autoplay: '1',
+        muted: '1',
+        playsinline: '1',
+        controls: '0',
+        title: '0',
+        byline: '0',
+        portrait: '0'
+      }).toString();
+      const nextUrl = `https://player.vimeo.com/video/${encodeURIComponent(nextVideoId)}?${params}`;
+
+      try {
+        backIframe.src = nextUrl;
+      } catch(e){ console.warn('[vimeo] iframe B set src failed', e); }
+
+      // create back player
+      let newBackPlayer = null;
+      try {
+        newBackPlayer = new Vimeo.Player(backIframe);
+      } catch(e){ console.warn('[vimeo] playerB create failed', e); this.newBackPlayer = null; }
+
+      // wait for ready (with timeout)
+      let backReady = false;
+      try {
+        await Promise.race([
+          newBackPlayer && newBackPlayer.ready ? newBackPlayer.ready() : Promise.resolve(),
+          new Promise(r => setTimeout(r, 2200))
+        ]);
+        backReady = true;
+      } catch(e){ backReady = false; }
+
+      // pause back player
+      try { await newBackPlayer.pause(); } catch(e){ console.warn('back pause failed', e); }
+
+      // try {
+      //   backPlayer = new Vimeo.Player(backIframe);
+      //   // Wait for back player to be ready before trying to pause it
+      //   await Promise.race([
+      //     backPlayer.ready(),
+      //     new Promise(r => setTimeout(r, 2200))
+      //   ]);
+      //   // Now that it's ready, we can pause it
+      //   await backPlayer.pause();
+      // } catch(e){ 
+      //   console.warn('[vimeo] playerB create/pause failed', e); 
+      //   this.backPlayer = null; 
+      // }
+
+      // advances when video end
+      frontPlayer.on('ended', this._onEnded);
+
+      // Add listener to new front player at the end
+      // const newFrontPlayer = this._getFrontPlayer();
+      // if (newFrontPlayer) {
+      //     try {
+      //         newFrontPlayer.on('ended', this._onEnded);
+      //     } catch(e) {}
+      // }
     }
-    destroy(){ if(this.timer) clearInterval(this.timer); }
+
+    _renderOverlay(title = '', desc = '') {
+      this.bottomOverlay.innerHTML = `
+        <div class="hc-meta">
+          <div class="hc-title">${escapeHtml(title || '')}</div>
+          ${ desc ? `<div class="hc-desc">${escapeHtml(desc)}</div>` : '' }
+        </div>
+      `;
+    }
+
+    // async _advanceOnEnd() {
+    //   if (!this.slides.length) return;
+    //   const nextIndex = (this.index + 1) % this.slides.length;
+    //   const meta = this.slides[nextIndex];
+    //   if (!meta) return;
+    //   const active = this.active === 'A' ? this.layerA : this.layerB;
+    //   const inactive = this.active === 'A' ? this.layerB : this.layerA;
+    //   const url = meta.hls || meta.mp4 || meta.src || '';
+    //   await attachSource(inactive, url);
+    //   try { inactive.currentTime = 0; inactive.muted = true; inactive.play().catch(()=>{}); } catch(e){}
+    //   try { active.pause(); active.currentTime = 0; } catch(e){}
+    //   active.classList.remove('active'); active.classList.add('inactive');
+    //   inactive.classList.remove('inactive'); inactive.classList.add('active');
+    //   this.active = this.active === 'A' ? 'B' : 'A';
+    //   this.index = nextIndex;
+    //   this._renderOverlay(meta.title || '', meta.desc || '');
+    //   // prefetch next
+    //   const nxt2 = (this.index + 1) % this.slides.length;
+    //   const preUrl = (this.slides[nxt2] && (this.slides[nxt2].hls || this.slides[nxt2].mp4 || this.slides[nxt2].src)) || '';
+    //   const preLayer = (this.active === 'A') ? this.layerB : this.layerA;
+    //   setTimeout(()=> { attachSource(preLayer, preUrl).catch(()=>{}); }, 600);
+    // }
+
+    _onEnded() {
+      // Non-recursive handler
+      this._switchIframes().catch(e => console.warn('switch failed', e));
+    }
+
+    destroy() {
+      try { if (this.players.A) { this.players.A.unload(); this.players.A=null; } } catch(e){}
+      try { if (this.players.B) { this.players.B.unload(); this.players.B=null; } } catch(e){}
+    }
   }
 
   /* ---------------- GalleryPlayer (Vimeo) - improvements for stability ---------------- */
@@ -573,16 +832,28 @@
       this.updateMuteButton();
     }
 
-    _onUserInteraction(){
-      if (!this.isManual) {
-        this.isManual = true;
-        this.clearAutoplay();
-        if (ADAPT_ASPECT_RATIO) this._adaptAspectRatioToCurrentVideo(ASPECT_RATIO_TRANSITION_MS).catch(()=>{});
-        // unlock height (allow aspect adaptation)
+    _onUserInteraction() {
+      // Se siamo già in manuale non riattivare tutto
+      // if (this.isManual) return;
+
+      // setta manual mode: blocca autoplay, abilita aspect ratio
+      this.isManual = true;
+      this.clearAutoplay();
+      log('[gallery] user interaction -> manual mode (aspect-ratio ON)');
+
+      // rimuovi l'altezza fissa da autoplay così l'elemento può adattarsi
+      // this._setAutoplayFixedHeight(false);
+
+      // applica aspect-ratio al video corrente (in modo smooth)
+      // usiamo timeout minimo per lasciare a DOM il tempo di aggiornare
+      if (ADAPT_ASPECT_RATIO){
         this._setAutoplayFixedHeight(false);
-        log('[gallery] switched to manual mode');
+        setTimeout(() => {
+          this._adaptAspectRatioToCurrentVideo(ASPECT_RATIO_TRANSITION_MS).catch(()=>{});
+        }, 60);
       }
     }
+
 
     updateMuteButton(){ const muted = readMute(); const btn = this.container.querySelector('.top-overlay .mute-btn'); if (btn) { btn.classList.toggle('muted', !!muted); btn.setAttribute('aria-pressed', muted ? 'true' : 'false'); } }
     _applyMuteToPlayers(){
@@ -607,7 +878,11 @@
     }
 
     prev(userTriggered=false){ if(!this.slides.length) return; const nextIndex = (this.currentIndex - 1 + this.slides.length) % this.slides.length; this.playIndex(nextIndex, { userTriggered, autoplay: true }); }
-    next(userTriggered=false){ if(!this.slides.length) return; const nextIndex = (this.currentIndex + 1) % this.slides.length; this.playIndex(nextIndex, { userTriggered, autoplay: true }); }
+    next(userTriggered=false){ 
+      if(!this.slides.length) return; 
+      const nextIndex = (this.currentIndex + 1) % this.slides.length; 
+      this.playIndex(nextIndex, { userTriggered, autoplay: true, next: true }); 
+    }
 
     async playIndex(i, opts={}) {
       if (!this.slides || !this.slides.length) return;
@@ -639,7 +914,10 @@
 
       // scroll if user-triggered and enabled
       if (shouldScroll && ((isMobileDevice() && SCROLL_TO_PLAYER_MOBILE) || (!isMobileDevice() && SCROLL_TO_PLAYER_DESKTOP))) {
-        try { if (this.playerWrap && typeof this.playerWrap.scrollIntoView === 'function') setTimeout(()=> this.playerWrap.scrollIntoView({ behavior:'smooth', block:'start' }), 80); } catch(e){}
+        try {
+          const playerWrap = document.querySelector('.category-nav') || document.querySelector('#galleryCarouselSection .gallery-player');
+          if (playerWrap && typeof playerWrap.scrollIntoView === 'function') setTimeout(()=> playerWrap.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
+        } catch(e){}
       }
       this.resetAutoplay();
     }
@@ -660,6 +938,7 @@
       if (!vId) { console.warn('[vimeo] missing id'); return; }
 
       const params = new URLSearchParams({
+        next: (opts.next === true) ? '1' : '0',
         autoplay: (opts.autoplay === false) ? '0' : '1',
         muted: '1', // start muted to satisfy autoplay policies; we'll apply user's volume after ready
         playsinline: '1',
@@ -668,27 +947,30 @@
         byline: USE_VIMEO_OVERLAY ? '1' : '0',
         portrait: USE_VIMEO_OVERLAY ? '1' : '0'
       }).toString();
-      const url = `${meta.iframe ? meta.iframe : `https://player.vimeo.com/video/${encodeURIComponent(vId)}`}?${params}`;
+      const url = `https://player.vimeo.com/video/${encodeURIComponent(vId)}?${params}`;
+      
+      // play next is already loaded
+      // if (!opts.next) {
+        // set src on back iframe to begin loading
+        try {
+          backIframe.src = url;
+          backIframe.style.opacity = 0;
+          backIframe.style.zIndex = 4;
+          backIframe.style.pointerEvents = USE_VIMEO_OVERLAY ? '' : 'none';
+        } catch(e){ console.warn('[vimeo] set src failed', e); }
 
-      // set src on back iframe to begin loading
-      try {
-        backIframe.src = url;
-        backIframe.style.opacity = 0;
-        backIframe.style.zIndex = 4;
-        backIframe.style.pointerEvents = USE_VIMEO_OVERLAY ? '' : 'none';
-      } catch(e){ console.warn('[vimeo] set src failed', e); }
+        // destroy previous back player instance if exists
+        if (this.players[backKey]) {
+          try { await this.players[backKey].unload(); } catch(e){} this.players[backKey] = null;
+        }
 
-      // destroy previous back player instance if exists
-      if (this.players[backKey]) {
-        try { await this.players[backKey].unload(); } catch(e){} this.players[backKey] = null;
-      }
-
-      // create new Vimeo.Player on back iframe
-      let backPlayer = null;
-      try {
-        backPlayer = new Vimeo.Player(backIframe);
-        this.players[backKey] = backPlayer;
-      } catch(e){ console.warn('[vimeo] player create failed', e); this.players[backKey] = null; }
+        // create new Vimeo.Player on back iframe
+        let backPlayer = null;
+        try {
+          backPlayer = new Vimeo.Player(backIframe);
+          this.players[backKey] = backPlayer;
+        } catch(e){ console.warn('[vimeo] player create failed', e); this.players[backKey] = null; }
+      // }
 
       // wait for ready (with timeout)
       let ready = false;
@@ -709,9 +991,9 @@
       } catch(e){}
 
       // if autoplay/preload enabled and not manual: try to play muted to buffer
-      if (AUTOPLAY_PRELOAD_ENABLED && !this.isManual && backPlayer && typeof backPlayer.play === 'function') {
-        try { await backPlayer.play().catch(()=>{}); } catch(e){}
-      }
+      // if (AUTOPLAY_PRELOAD_ENABLED && !this.isManual && backPlayer && typeof backPlayer.play === 'function') {
+        // try { await backPlayer.play().catch(()=>{}); } catch(e){}
+      // }
 
       // attach listeners to front player later; ensure progress updates are tied to front player
       const attachFrontListeners = async (playerInstance, key) => {
@@ -768,6 +1050,29 @@
       // swap marker
       this.front = backKey;
 
+      // // preload next 
+      // try {
+      //   nextUrl = this.slides[i+1].vimeoId;
+      //   try {
+      //     backIframe.src = nextUrl;
+      //     backIframe.style.opacity = 0;
+      //     backIframe.style.zIndex = 4;
+      //     backIframe.style.pointerEvents = USE_VIMEO_OVERLAY ? '' : 'none';
+      //   } catch(e){ console.warn('[vimeo] set next src failed', e); }
+
+      //   // destroy previous back player instance if exists
+      //   if (this.players[backKey]) {
+      //     try { await this.players[backKey].unload(); } catch(e){} this.players[backKey] = null;
+      //   }
+
+      //   // create new Vimeo.Player on back iframe
+      //   let backPlayer = null;
+      //   try {
+      //     backPlayer = new Vimeo.Player(backIframe);
+      //     this.players[backKey] = backPlayer;
+      //   } catch(e){ console.warn('[vimeo] next player create failed', e); this.players[backKey] = null; }
+      // } catch(e){}
+
       // set front player's controls: assign players[frontKey] reference if not set
       // If we created backPlayer above it's already assigned; ensure event listeners for progress/ended
       try {
@@ -811,7 +1116,7 @@
           let newHeight = Math.min(MAX_PLAYER_HEIGHT_PX, Math.round(parentWidth / ratio));
           this.playerWrap.style.transition = `height ${ms}ms ease`;
           this.playerWrap.style.height = newHeight + 'px';
-          setTimeout(()=> { this.playerWrap.style.transition = ''; }, ms + 30);
+          setTimeout(()=> { this.playerWrap.style.transition = 'height ${ms}ms ease'; }, ms + 30);
         }
       } catch(e){ console.warn('[aspect] adapt failed', e); }
     }
@@ -880,9 +1185,27 @@
 
     /* click on player area toggles pause/play (except on controls) */
     async _onPlayerClick(ev) {
+      // se click su controlli, ignora (già gestito)
       if (ev.target.closest('.progress-wrap') || ev.target.closest('.control-btn') || ev.target.closest('.top-btn')) return;
+
+      // se non esiste player frontale -> skip
       const front = this._getFrontPlayer();
       if (!front) return;
+      
+      if (ADAPT_ASPECT_RATIO) {
+        // SE eravamo in autoplay (non manuale) -> prima interazione: entra in manual mode ma NON mettere in pausa
+        if (!this.isManual) {
+          // this will set isManual, stop autoplay, apply aspect-ratio, and keep playing
+          this._onUserInteraction();
+          // show overlay briefly
+          this._showGalleryOverlay();
+          this._startOverlayHideTimer();
+          return;
+        }
+      }
+
+
+      // altrimenti (se già in manual mode) il comportamento è toggle pause/play come prima
       try {
         const paused = await front.getPaused().catch(()=>true);
         if (paused) {
@@ -890,11 +1213,16 @@
           this._showGalleryOverlay(); this._startOverlayHideTimer();
         } else {
           await front.pause().catch(()=>{});
+          // mostra overlay pause
           if (this.playOverlay) { this.playOverlay.classList.add('paused'); this.playOverlay.style.display='flex'; this.playOverlay.style.opacity='1'; }
         }
-        this._onUserInteraction();
-      } catch(e){ console.warn('[gallery] toggle play/pause failed', e); }
+        // segnala interazione manuale persistente
+        // (non chiamiamo _onUserInteraction di nuovo perché già siamo in manual)
+      } catch (e) {
+        console.warn('[gallery] toggle play/pause failed', e);
+      }
     }
+
   }
 
   /* ---------------- Grid & filters ---------------- */
@@ -942,7 +1270,7 @@
         const idxInSlides = currentItems.findIndex(s => (s.id || s.vimeoId) === vidKeyLocal);
         if (typeof window.galleryPlayer !== 'undefined' && window.galleryPlayer && idxInSlides >= 0) {
           window.galleryPlayer.isManual = true;
-          window.galleryPlayer.playIndex(idxInSlides, { userTriggered: true, autoplay: true, forceResize: true });
+          window.galleryPlayer.playIndex(idxInSlides, { userTriggered: true, autoplay: true, forceResize: ADAPT_ASPECT_RATIO });
         }
         focusGridItem(container, idx);
         const cats = Array.isArray(sel) && sel.length ? sel.join(',') : '';
@@ -950,13 +1278,6 @@
         const newHash = params.toString();
         history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + (newHash ? ('#' + newHash) : ''));
         try{ saveSessionFilters(sel || []); saveSessionVideo(vidKeyLocal); } catch(e){}
-        // scroll to player when manual selection (configurable)
-        if ((isMobileDevice() && SCROLL_TO_PLAYER_MOBILE) || (!isMobileDevice() && SCROLL_TO_PLAYER_DESKTOP)) {
-          try {
-            const playerWrap = document.querySelector('.gallery-player') || document.querySelector('#galleryCarouselSection .gallery-player');
-            if (playerWrap && typeof playerWrap.scrollIntoView === 'function') setTimeout(()=> playerWrap.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
-          } catch(e){}
-        }
       });
       btn.setAttribute('data-id', vidKey);
       btn.setAttribute('data-index', idx);
@@ -992,7 +1313,7 @@
     const section = context.querySelector('#carouselSection');
     if (!section) return;
     let slides = Array.isArray(HOME_CAROUSEL) && HOME_CAROUSEL.length ? HOME_CAROUSEL.slice() : [];
-    if (!slides.length && Array.isArray(VIDEOS) && VIDEOS.length) slides.push(...VIDEOS.slice(0, Math.min(5, VIDEOS.length)));
+    // if (!slides.length && Array.isArray(VIDEOS) && VIDEOS.length) slides.push(...VIDEOS.slice(0, Math.min(5, VIDEOS.length)));
     homeCarousel = new HomeCarousel({ container: section, slides });
   }
 
@@ -1073,7 +1394,7 @@
         if (vidMeta) {
           const idx = slidesForPlayer.findIndex(s => (s.id || s.vimeoId) === (vidMeta.id || vidMeta.vimeoId));
           if (idx >= 0) {
-            setTimeout(()=> galleryPlayer.playIndex(idx, { userTriggered:true, autoplay:false, forceResize:true }), 120);
+            setTimeout(()=> galleryPlayer.playIndex(idx, { userTriggered:true, autoplay:true, forceResize: ADAPT_ASPECT_RATIO }), 120);
           }
         }
       } else {
